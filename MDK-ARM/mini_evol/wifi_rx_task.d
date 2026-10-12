@@ -1,0 +1,15 @@
+mini_evol\wifi_rx_task.o: ..\Core\Src\app\wifi_rx_task.c
+mini_evol\wifi_rx_task.o: ..\Core\Inc\app\wifi_rx_task.h
+mini_evol\wifi_rx_task.o: ../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2/cmsis_os2.h
+mini_evol\wifi_rx_task.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\stdint.h
+mini_evol\wifi_rx_task.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\stddef.h
+mini_evol\wifi_rx_task.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/FreeRTOS.h
+mini_evol\wifi_rx_task.o: ..\Core\Inc\app\FreeRTOSConfig.h
+mini_evol\wifi_rx_task.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/projdefs.h
+mini_evol\wifi_rx_task.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/portable.h
+mini_evol\wifi_rx_task.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/deprecated_definitions.h
+mini_evol\wifi_rx_task.o: ../Middlewares/Third_Party/FreeRTOS/Source/portable/RVDS/ARM_CM4F/portmacro.h
+mini_evol\wifi_rx_task.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/mpu_wrappers.h
+mini_evol\wifi_rx_task.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/stream_buffer.h
+mini_evol\wifi_rx_task.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\string.h
+mini_evol\wifi_rx_task.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\stdio.h

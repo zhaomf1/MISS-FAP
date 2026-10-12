@@ -1,0 +1,10 @@
+mini_evol\cjson.o: ..\Core\Src\app\cJSON.c
+mini_evol\cjson.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\string.h
+mini_evol\cjson.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\stdio.h
+mini_evol\cjson.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\math.h
+mini_evol\cjson.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\stdlib.h
+mini_evol\cjson.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\limits.h
+mini_evol\cjson.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\ctype.h
+mini_evol\cjson.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\float.h
+mini_evol\cjson.o: ..\Core\Inc\app\cJSON.h
+mini_evol\cjson.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\stddef.h

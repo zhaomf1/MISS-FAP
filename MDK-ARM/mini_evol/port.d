@@ -1,0 +1,12 @@
+mini_evol\port.o: ../Middlewares/Third_Party/FreeRTOS/Source/portable/RVDS/ARM_CM4F/port.c
+mini_evol\port.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/FreeRTOS.h
+mini_evol\port.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\stddef.h
+mini_evol\port.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\stdint.h
+mini_evol\port.o: ..\Core\Inc\peripheral\FreeRTOSConfig.h
+mini_evol\port.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/projdefs.h
+mini_evol\port.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/portable.h
+mini_evol\port.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/deprecated_definitions.h
+mini_evol\port.o: ../Middlewares/Third_Party/FreeRTOS/Source/portable/RVDS/ARM_CM4F/portmacro.h
+mini_evol\port.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/mpu_wrappers.h
+mini_evol\port.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/task.h
+mini_evol\port.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/list.h
