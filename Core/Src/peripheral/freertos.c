@@ -25,7 +25,8 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "motor.h"
+#include "iwdg.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -45,7 +46,18 @@
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN Variables */
-
+static osThreadId_t motorTaskHandle;
+static const osThreadAttr_t motorTask_attributes = {
+  .name = "motorTask",
+  .stack_size = 1024 * 4,
+  .priority = (osPriority_t) osPriorityAboveNormal,
+};
+static osThreadId_t cliTaskHandle;
+static const osThreadAttr_t cliTask_attributes = {
+  .name = "cliTask",
+  .stack_size = 1024 * 4,
+  .priority = (osPriority_t) osPriorityLow,
+};
 /* USER CODE END Variables */
 /* Definitions for defaultTask */
 osThreadId_t defaultTaskHandle;
@@ -96,6 +108,8 @@ void MX_FREERTOS_Init(void) {
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
+  motorTaskHandle = osThreadNew(MotorTask, NULL, &motorTask_attributes);
+  cliTaskHandle = osThreadNew(CliTask, NULL, &cliTask_attributes);
   /* USER CODE END RTOS_THREADS */
 
   /* USER CODE BEGIN RTOS_EVENTS */
@@ -115,9 +129,17 @@ void StartDefaultTask(void *argument)
 {
   /* USER CODE BEGIN StartDefaultTask */
   /* Infinite loop */
+  uint32_t blink = 0;   /* 运行指示灯计时, ms */
   for(;;)
   {
-    osDelay(1);
+    HAL_IWDG_Refresh(&hiwdg);   /* IWDG超时约0.5s, 全工程原本无喂狗 */
+    osDelay(100);
+    blink += 100;
+    if (blink >= 500)           /* 0.5s翻转一次: 亮0.5s灭0.5s; 改250=每0.5s一个亮灭周期 */
+    {
+      blink -= 500;
+      HAL_GPIO_TogglePin(RUN_LED_GPIO_Port, RUN_LED_Pin);   /* PC1=LED11 运行状态灯 */
+    }
   }
   /* USER CODE END StartDefaultTask */
 }

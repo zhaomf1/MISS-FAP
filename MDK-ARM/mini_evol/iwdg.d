@@ -1,8 +1,8 @@
-mini_evol\iwdg.o: ..\Core\Src\peripheral\iwdg.c
-mini_evol\iwdg.o: ..\Core\Inc\peripheral\iwdg.h
-mini_evol\iwdg.o: ..\Core\Inc\app\main.h
+mini_evol\iwdg.o: ../Core/Src/peripheral/iwdg.c
+mini_evol\iwdg.o: ../Core/Inc/peripheral/iwdg.h
+mini_evol\iwdg.o: ../Core/Inc/app/main.h
 mini_evol\iwdg.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h
-mini_evol\iwdg.o: ..\Core\Inc\system\stm32f4xx_hal_conf.h
+mini_evol\iwdg.o: ../Core/Inc/system/stm32f4xx_hal_conf.h
 mini_evol\iwdg.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc.h
 mini_evol\iwdg.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_def.h
 mini_evol\iwdg.o: ../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h

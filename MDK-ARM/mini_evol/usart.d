@@ -1,8 +1,8 @@
-mini_evol\usart.o: ..\Core\Src\peripheral\usart.c
-mini_evol\usart.o: ..\Core\Inc\peripheral\usart.h
-mini_evol\usart.o: ..\Core\Inc\app\main.h
+mini_evol\usart.o: ../Core/Src/peripheral/usart.c
+mini_evol\usart.o: ../Core/Inc/peripheral/usart.h
+mini_evol\usart.o: ../Core/Inc/app/main.h
 mini_evol\usart.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h
-mini_evol\usart.o: ..\Core\Inc\system\stm32f4xx_hal_conf.h
+mini_evol\usart.o: ../Core/Inc/system/stm32f4xx_hal_conf.h
 mini_evol\usart.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc.h
 mini_evol\usart.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_def.h
 mini_evol\usart.o: ../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h

@@ -3,7 +3,7 @@ mini_evol\stream_buffer.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\stdint.h
 mini_evol\stream_buffer.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\string.h
 mini_evol\stream_buffer.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/FreeRTOS.h
 mini_evol\stream_buffer.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\stddef.h
-mini_evol\stream_buffer.o: ..\Core\Inc\peripheral\FreeRTOSConfig.h
+mini_evol\stream_buffer.o: ../Core/Inc/peripheral/FreeRTOSConfig.h
 mini_evol\stream_buffer.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/projdefs.h
 mini_evol\stream_buffer.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/portable.h
 mini_evol\stream_buffer.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/deprecated_definitions.h

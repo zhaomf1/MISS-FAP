@@ -1,8 +1,8 @@
-mini_evol\i2c.o: ..\Core\Src\peripheral\i2c.c
-mini_evol\i2c.o: ..\Core\Inc\peripheral\i2c.h
-mini_evol\i2c.o: ..\Core\Inc\app\main.h
+mini_evol\i2c.o: ../Core/Src/peripheral/i2c.c
+mini_evol\i2c.o: ../Core/Inc/peripheral/i2c.h
+mini_evol\i2c.o: ../Core/Inc/app/main.h
 mini_evol\i2c.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h
-mini_evol\i2c.o: ..\Core\Inc\system\stm32f4xx_hal_conf.h
+mini_evol\i2c.o: ../Core/Inc/system/stm32f4xx_hal_conf.h
 mini_evol\i2c.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc.h
 mini_evol\i2c.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_def.h
 mini_evol\i2c.o: ../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h

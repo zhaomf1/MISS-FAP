@@ -59,7 +59,9 @@ void Error_Handler(void);
 /* Private defines -----------------------------------------------------------*/
 
 /* USER CODE BEGIN Private defines */
-
+/* 运行状态指示灯: PC1 = LED11, 高电平点亮(输出24V指示), 系统正常运行时闪烁 */
+#define RUN_LED_GPIO_Port GPIOC
+#define RUN_LED_Pin       GPIO_PIN_1
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus

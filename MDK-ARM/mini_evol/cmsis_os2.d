@@ -6,7 +6,7 @@ mini_evol\cmsis_os2.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\stddef.h
 mini_evol\cmsis_os2.o: ../Drivers/CMSIS/Include/cmsis_compiler.h
 mini_evol\cmsis_os2.o: ../Drivers/CMSIS/Include/cmsis_armcc.h
 mini_evol\cmsis_os2.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/FreeRTOS.h
-mini_evol\cmsis_os2.o: ..\Core\Inc\peripheral\FreeRTOSConfig.h
+mini_evol\cmsis_os2.o: ../Core/Inc/peripheral/FreeRTOSConfig.h
 mini_evol\cmsis_os2.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/projdefs.h
 mini_evol\cmsis_os2.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/portable.h
 mini_evol\cmsis_os2.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/deprecated_definitions.h
@@ -27,7 +27,7 @@ mini_evol\cmsis_os2.o: ../Drivers/CMSIS/Include/cmsis_version.h
 mini_evol\cmsis_os2.o: ../Drivers/CMSIS/Include/mpu_armv7.h
 mini_evol\cmsis_os2.o: ../Drivers/CMSIS/Device/ST/STM32F4xx/Include/system_stm32f4xx.h
 mini_evol\cmsis_os2.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h
-mini_evol\cmsis_os2.o: ..\Core\Inc\system\stm32f4xx_hal_conf.h
+mini_evol\cmsis_os2.o: ../Core/Inc/system/stm32f4xx_hal_conf.h
 mini_evol\cmsis_os2.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc.h
 mini_evol\cmsis_os2.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_def.h
 mini_evol\cmsis_os2.o: ../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h

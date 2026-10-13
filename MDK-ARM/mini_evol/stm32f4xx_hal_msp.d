@@ -1,7 +1,7 @@
-mini_evol\stm32f4xx_hal_msp.o: ..\Core\Src\system\stm32f4xx_hal_msp.c
-mini_evol\stm32f4xx_hal_msp.o: ..\Core\Inc\app\main.h
+mini_evol\stm32f4xx_hal_msp.o: ../Core/Src/system/stm32f4xx_hal_msp.c
+mini_evol\stm32f4xx_hal_msp.o: ../Core/Inc/app/main.h
 mini_evol\stm32f4xx_hal_msp.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h
-mini_evol\stm32f4xx_hal_msp.o: ..\Core\Inc\system\stm32f4xx_hal_conf.h
+mini_evol\stm32f4xx_hal_msp.o: ../Core/Inc/system/stm32f4xx_hal_conf.h
 mini_evol\stm32f4xx_hal_msp.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc.h
 mini_evol\stm32f4xx_hal_msp.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_def.h
 mini_evol\stm32f4xx_hal_msp.o: ../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h

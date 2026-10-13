@@ -1,8 +1,8 @@
-mini_evol\freertos.o: ..\Core\Src\peripheral\freertos.c
+mini_evol\freertos.o: ../Core/Src/peripheral/freertos.c
 mini_evol\freertos.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/FreeRTOS.h
 mini_evol\freertos.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\stddef.h
 mini_evol\freertos.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\stdint.h
-mini_evol\freertos.o: ..\Core\Inc\peripheral\FreeRTOSConfig.h
+mini_evol\freertos.o: ../Core/Inc/peripheral/FreeRTOSConfig.h
 mini_evol\freertos.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/projdefs.h
 mini_evol\freertos.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/portable.h
 mini_evol\freertos.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/deprecated_definitions.h
@@ -10,9 +10,9 @@ mini_evol\freertos.o: ../Middlewares/Third_Party/FreeRTOS/Source/portable/RVDS/A
 mini_evol\freertos.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/mpu_wrappers.h
 mini_evol\freertos.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/task.h
 mini_evol\freertos.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/list.h
-mini_evol\freertos.o: ..\Core\Inc\app\main.h
+mini_evol\freertos.o: ../Core/Inc/app/main.h
 mini_evol\freertos.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h
-mini_evol\freertos.o: ..\Core\Inc\system\stm32f4xx_hal_conf.h
+mini_evol\freertos.o: ../Core/Inc/system/stm32f4xx_hal_conf.h
 mini_evol\freertos.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc.h
 mini_evol\freertos.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_def.h
 mini_evol\freertos.o: ../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h
@@ -48,3 +48,5 @@ mini_evol\freertos.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_tim_ex.h
 mini_evol\freertos.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h
 mini_evol\freertos.o: ../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2/cmsis_os.h
 mini_evol\freertos.o: ../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2/cmsis_os2.h
+mini_evol\freertos.o: ../Core/Inc/app/motor.h
+mini_evol\freertos.o: ../Core/Inc/peripheral/iwdg.h
