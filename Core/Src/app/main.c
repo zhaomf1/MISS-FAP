@@ -75,7 +75,6 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -110,7 +109,10 @@ int main(void)
   MX_USART1_UART_Init();
   MX_USART2_UART_Init();
   MX_USART3_UART_Init();
-  MX_USART6_UART_Init();
+  /* 测试板(2026-10-16): PC6/PC7 改作开关舱门按键, 禁止初始化 USART6 (按键
+   * 驱动会运行时释放引脚, 但保留此注释可避免启动期间引脚被串口占用)。
+   * 若 CubeMX 重新生成本文件, 需重新注释这一行 */
+  // MX_USART6_UART_Init();
   /* USER CODE BEGIN 2 */
   printf("system start\n");
 

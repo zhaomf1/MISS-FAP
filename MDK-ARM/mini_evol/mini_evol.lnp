@@ -2,6 +2,8 @@
 "mini_evol\startup_stm32f405xx.o"
 "mini_evol\main.o"
 "mini_evol\motor.o"
+"mini_evol\key.o"
+"mini_evol\lcd_st7789.o"
 "mini_evol\gpio.o"
 "mini_evol\freertos.o"
 "mini_evol\dma.o"

@@ -1,12 +1,12 @@
 /**
   ******************************************************************************
   * @file    motor.c
-  * @brief   SND2506 翻盖电机驱动: TIM4_CH2 输入捕获测反馈 + PD14 GPIO 发脉宽指令
+  * @brief   SND2506 翻盖电机驱动: TIM4_CH2(PD13) 输入捕获测低电平反馈 + PE6/VALVE5 发脉宽指令
   *          + FreeRTOS 状态机服务任务 + USART1 调试命令口
   *
-  * 注意: TIM4 被 PD13 输入捕获复用后, PD12(STEP_4)/PD15(LED_B) 的 PWM 输出
-  *       不再可用 (当前工程未启用, 无影响)。若日后 CubeMX 重新生成代码,
-  *       本模块会在运行时自行重配 TIM4/PD13/PD14, 无需依赖 .ioc 的改动。
+  * PE6 驱动 VALVE5，高电平时将 12V_IN 电压送至 12V_OUT5；用于电机 Input。
+  * PD13 仅作反馈输入捕获。CubeMX 重新生成代码后本模块运行时自行重配
+  * PE6/PD13/TIM4，无需依赖 .ioc。
   ******************************************************************************
   */
 
@@ -17,23 +17,25 @@
 #include <ctype.h>
 #include "cmsis_os.h"
 #include "tim.h"      /* htim4 */
-#include "usart.h"    /* huart1 */
+#include "usart.h"    /* huart1(CLI) */
 #include "FreeRTOS.h"
 #include "task.h"
 #include "queue.h"
+#include "key.h"          /* 按键调试回显 (CLI 'k') */
+#include "lcd_st7789.h"   /* 屏幕驱动自检 (CLI 'l') */
 
 /* Private defines -----------------------------------------------------------*/
 
-/* 指令输出脚 RGB-G*/
-#define MOTOR_CMD_PORT           GPIOD
-#define MOTOR_CMD_PIN            GPIO_PIN_14
+/* 指令输出：PE6 -> VALVE5 -> 12V_OUT5 */
+#define MOTOR_CMD_PORT           GPIOE
+#define MOTOR_CMD_PIN            GPIO_PIN_6
 
-/* 反馈输入脚 (TIM4_CH2, AF2) LED-R*/
+/* 反馈输入脚 (TIM4_CH2, AF2) LED_R 网络 */
 #define MOTOR_FB_PORT            GPIOD
 #define MOTOR_FB_PIN             GPIO_PIN_13
 
 /* TIM4 计数时钟: 84MHz / (83+1) = 1MHz -> 1us 分辨率, 16bit 量程 65.5ms */
-#define MOTOR_TIM4_PRESCALER     83
+#define MOTOR_TIM_PRESCALER      83
 
 #if MOTOR_CMD_INVERTED
 /* 方案A: 开漏经2N7002反相. 空闲=输出高(MOS导通, Input=0V), 脉冲=拉低 */
@@ -47,15 +49,22 @@
 #define CMD_GPIO_MODE            GPIO_MODE_OUTPUT_PP
 #endif
 
-/* 反馈解码事件 */
+/* 反馈解码事件 (由反馈低脉冲宽度判定, 窗口±0.3ms，见 motor.h 反馈脉宽宏):
+ *   FB_OPEN_DONE   0.8ms  盖已开到上限位(开舱门动作完成)
+ *   FB_CLOSED_DONE 7.5ms  盖已关到下限位(关舱门动作完成/安装校准完成)
+ *   FB_UP_DECEL    3.3ms  开盖接近到位, 电机减速中
+ *   FB_DOWN_DECEL  5.0ms  关盖接近到位, 电机减速中
+ *   FB_MOVING      2.5ms  运动过程中(协议不分方向, 靠当前指令方向 s_dir_up 区分)
+ *   FB_UNKNOWN     其他   解码失败(干扰/线松)
+ * 注: 原厂确认反馈线为空闲高+低脉冲；ISR 按该极性采集。 */
 typedef enum {
-  FB_NONE = 0,
-  FB_OPEN_DONE,
-  FB_CLOSED_DONE,
-  FB_UP_DECEL,
-  FB_DOWN_DECEL,
-  FB_MOVING,
-  FB_UNKNOWN,
+  FB_NONE = 0,        /* 无事件/未解码 */
+  FB_OPEN_DONE,       /* 0.8ms  开到位 */
+  FB_CLOSED_DONE,     /* 7.5ms  关到位 */
+  FB_UP_DECEL,        /* 3.3ms  上翻减速 */
+  FB_DOWN_DECEL,      /* 5.0ms  下翻减速 */
+  FB_MOVING,          /* 2.5ms  运动中(上/下) */
+  FB_UNKNOWN,          /* 其他   解码失败 */
 } fb_event_t;
 
 /* 服务任务命令 */
@@ -71,8 +80,8 @@ typedef struct {
 #define FB_RING_N   32
 
 typedef struct {
-  uint32_t w_us;       /* 低脉宽 us */
-  uint32_t per_us;     /* 脉冲周期 us (上升沿到上升沿) */
+  uint32_t w_us;       /* Feedback 低电平脉宽 us */
+  uint32_t per_us;     /* 脉冲周期 us (下降沿到下降沿) */
   uint8_t  event;      /* 解码结果 fb_event_t */
 } fb_ring_item_t;
 
@@ -86,12 +95,19 @@ static volatile motor_state_t s_state = MOTOR_UNINIT;
 static volatile uint8_t       s_dir_up = 1;      /* 当前指令方向: 1上翻 0下翻 */
 static volatile TickType_t   s_fb_last_tick = 0; /* 最近一次反馈时刻 */
 static volatile TickType_t   s_deadline = 0;     /* 当前阶段超时时刻 */
-static volatile TickType_t   s_move_start = 0;   /* 本次动作发起时刻(宽限期用) */
-static volatile uint8_t      s_fb_seen = 0;      /* 是否收到过任何反馈 */
+static volatile TickType_t   s_move_start = 0;   /* 本次动作发起时刻 */
+static volatile uint8_t      s_fb_seen = 0;      /* 是否收到过任何反馈(状态显示用) */
+static volatile uint8_t      s_fb_move_seen = 0; /* 本次动作是否已见到首个反馈(单次过程信号) */
 
-static volatile uint32_t    s_cap_rise = 0;       /* ISR: 最近上升沿捕获值 */
-static volatile uint32_t    s_cap_last_rise = 0;
-static volatile uint32_t    s_per_us = 0;         /* ISR: 最近一次周期 */
+static volatile uint32_t    s_cap_fall = 0;       /* ISR: 最近下降沿捕获值 */
+static volatile uint32_t    s_cap_last_fall = 0;
+static volatile uint32_t    s_per_us = 0;          /* ISR: 最近一次下降沿周期 */
+static volatile uint8_t     s_low_pulse_started = 0;
+static volatile uint32_t    s_fb_capture_count = 0; /* ISR: 已接受的完整低脉冲数 */
+static volatile uint32_t    s_fb_reject_count = 0;  /* ISR: 非协议宽度的低脉冲数 */
+static volatile uint32_t    s_fb_last_width_us = 0; /* ISR: 最近接受的低脉宽 */
+static volatile uint8_t     s_diag_watch = 0;      /* d 命令控制的 PD13 实时监视 */
+static TickType_t           s_diag_next_tick = 0;
 
 static fb_ring_item_t  s_ring[FB_RING_N];
 static volatile uint32_t s_ring_head = 0;
@@ -105,13 +121,15 @@ static void motor_pulse(uint16_t width_ms);
 static fb_event_t fb_decode(uint32_t w_us);
 static void fb_accept(fb_event_t e);
 static void set_state(motor_state_t st);
+static void cli_diag_toggle(void);
+static void diag_print(void);
 
 /* ========================================================================== */
 /* 硬件层                                                                      */
 /* ========================================================================== */
 
 /**
-  * @brief  运行时重配 PD13/PD14/TIM4 (兼容 CubeMX 重新生成代码)
+  * @brief  运行时重配 PE6/PD13/TIM4 (兼容 CubeMX 重新生成代码)
   * @note   MX_TIM4_Init 已把 TIM4 时钟打开, 这里只改分频/通道/引脚
   */
 static void motor_hw_init(void)
@@ -119,8 +137,12 @@ static void motor_hw_init(void)
   GPIO_InitTypeDef gpio = {0};
   TIM_IC_InitTypeDef ic = {0};
 
-  /* --- PD14: 指令输出. 先写空闲电平再切输出, 防止上电毛刺 --- */
+  /* --- PE6/VALVE5: 指令输出. 先写目标电平再切输出, 防止上电毛刺 --- */
+#if MOTOR_PE6_STATIC_HIGH_TEST
+  HAL_GPIO_WritePin(MOTOR_CMD_PORT, MOTOR_CMD_PIN, GPIO_PIN_SET);
+#else
   HAL_GPIO_WritePin(MOTOR_CMD_PORT, MOTOR_CMD_PIN, CMD_IDLE_LEVEL);
+#endif
   gpio.Pin   = MOTOR_CMD_PIN;
   gpio.Mode  = CMD_GPIO_MODE;
   gpio.Pull  = GPIO_NOPULL;
@@ -135,19 +157,20 @@ static void motor_hw_init(void)
   gpio.Alternate = GPIO_AF2_TIM4;
   HAL_GPIO_Init(MOTOR_FB_PORT, &gpio);
 
-  /* --- TIM4: 1MHz 计数 --- */
-  htim4.Init.Prescaler = MOTOR_TIM4_PRESCALER;
+  /* --- TIM4: 1MHz 计数 (84MHz APB1定时器时钟) --- */
+  htim4.Init.Prescaler = MOTOR_TIM_PRESCALER;
   htim4.Init.Period    = 0xFFFFu;
   HAL_TIM_Base_Init(&htim4);
 
-  /* CH1: 上升沿(低脉冲结束), IC1 经 INDIRECTTI 映射到 TI2 (即 PD13)
-   * CH2: 下降沿(低脉冲开始), IC2 经 DIRECTTI  映射到 TI2            */
+  /* 原厂定义：空闲高，低电平宽度为状态码。
+   * CH1: 下降沿(低脉冲开始), IC1 经 INDIRECTTI 映射到 TI2 (PD13)
+   * CH2: 上升沿(低脉冲结束), IC2 经 DIRECTTI  映射到 TI2          */
   ic.ICPrescaler = TIM_ICPSC_DIV1;
   ic.ICFilter    = 0x0F;                    /* 滤除 <3us 毛刺 */
-  ic.ICPolarity  = TIM_ICPOLARITY_RISING;
+  ic.ICPolarity  = TIM_ICPOLARITY_FALLING;
   ic.ICSelection = TIM_ICSELECTION_INDIRECTTI;
   HAL_TIM_IC_ConfigChannel(&htim4, &ic, TIM_CHANNEL_1);
-  ic.ICPolarity  = TIM_ICPOLARITY_FALLING;
+  ic.ICPolarity  = TIM_ICPOLARITY_RISING;
   ic.ICSelection = TIM_ICSELECTION_DIRECTTI;
   HAL_TIM_IC_ConfigChannel(&htim4, &ic, TIM_CHANNEL_2);
 
@@ -163,10 +186,15 @@ static void motor_hw_init(void)
   */
 static void motor_pulse(uint16_t width_ms)
 {
+#if MOTOR_PE6_STATIC_HIGH_TEST
+  (void)width_ms;
+  printf("[motor] PE6 static-high test active; pulse suppressed\r\n");
+#else
   HAL_GPIO_WritePin(MOTOR_CMD_PORT, MOTOR_CMD_PIN, CMD_ACTIVE_LEVEL);
   osDelay(width_ms);
   HAL_GPIO_WritePin(MOTOR_CMD_PORT, MOTOR_CMD_PIN, CMD_IDLE_LEVEL);
   printf("[motor] pulse %ums sent\r\n", width_ms);
+#endif
 }
 
 /* ========================================================================== */
@@ -179,9 +207,9 @@ void TIM4_IRQHandler(void)
 }
 
 /**
-  * @brief  TIM 输入捕获回调: CH1记上升沿(高脉冲开始), CH2记下降沿(结束)
-  * @note   实测反馈极性与规格书相反: 空闲低电平, 每~34ms一个高脉冲,
-  *         高脉冲宽度即状态代码 (0.8/2.5/3.3/5.0/7.5ms)
+  * @brief  TIM 输入捕获回调: CH1记下降沿(低脉冲开始), CH2记上升沿(结束)
+  * @note   原厂协议：空闲高，低脉冲宽度即状态代码
+  *         (0.8/2.5/3.3/5.0/7.5ms)。非协议脉宽不送入状态机。
   */
 void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
 {
@@ -190,27 +218,41 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
   if (htim->Instance != TIM4)
     return;
 
-  if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1)          /* 上升沿: 高脉冲开始 */
+  if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1)          /* 下降沿: 低脉冲开始 */
   {
-    uint32_t rise = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_1);
-    /* 周期 = 上升沿到上升沿 */
-    s_per_us = (rise >= s_cap_last_rise)
-               ? (rise - s_cap_last_rise)
-               : (rise + 0x10000u - s_cap_last_rise);
-    s_cap_last_rise = rise;
-    s_cap_rise      = rise;
+    uint32_t fall = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_1);
+    /* 周期 = 下降沿到下降沿 */
+    s_per_us = (fall >= s_cap_last_fall)
+               ? (fall - s_cap_last_fall)
+               : (fall + 0x10000u - s_cap_last_fall);
+    s_cap_last_fall = fall;
+    s_cap_fall      = fall;
+    s_low_pulse_started = 1;
   }
-  else if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_2)    /* 下降沿: 高脉冲结束 */
+  else if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_2)    /* 上升沿: 低脉冲结束 */
   {
-    uint32_t fall = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_2);
-    uint32_t rise = s_cap_rise;
+    uint32_t rise = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_2);
+    uint32_t fall = s_cap_fall;
     fb_ring_item_t item;
 
-    /* 高脉冲宽度 (16bit 回绕处理) */
-    item.w_us   = (fall >= rise) ? (fall - rise) : (fall + 0x10000u - rise);
+    if (!s_low_pulse_started)
+      return;
+    s_low_pulse_started = 0;
+
+    /* 低脉冲宽度 (16bit 回绕处理) */
+    item.w_us   = (rise >= fall) ? (rise - fall) : (rise + 0x10000u - fall);
     item.per_us = s_per_us;
     item.event  = FB_NONE;
-    xQueueSendFromISR(s_fb_q, &item, &hprio_woken);
+    if (item.w_us >= MOTOR_FB_MIN_VALID_US && item.w_us <= MOTOR_FB_MAX_VALID_US)
+    {
+      s_fb_last_width_us = item.w_us;
+      s_fb_capture_count++;
+      xQueueSendFromISR(s_fb_q, &item, &hprio_woken);
+    }
+    else
+    {
+      s_fb_reject_count++;
+    }
   }
   portYIELD_FROM_ISR(hprio_woken);
 }
@@ -348,8 +390,6 @@ void MotorTask(void *argument)
   (void)argument;
   motor_cmd_t cmd;
   fb_ring_item_t item;
-  fb_event_t pend = FB_NONE;      /* 消抖: 连续2次相同才接受 */
-  uint8_t    pend_cnt = 0;
 
   s_cmd_q = xQueueCreate(1, sizeof(motor_cmd_t));
   s_fb_q  = xQueueCreate(16, sizeof(fb_ring_item_t));
@@ -385,6 +425,7 @@ void MotorTask(void *argument)
           set_state(MOTOR_OPENING);
           s_fb_last_tick = xTaskGetTickCount();
           s_move_start   = s_fb_last_tick;
+          s_fb_move_seen = 0;                     /* 等电机回首个反馈(2.5ms单次) */
           s_deadline = s_fb_last_tick + pdMS_TO_TICKS(MOTOR_MOVE_TIMEOUT_MS);
           break;
 
@@ -394,6 +435,7 @@ void MotorTask(void *argument)
           set_state(MOTOR_CLOSING);
           s_fb_last_tick = xTaskGetTickCount();
           s_move_start   = s_fb_last_tick;
+          s_fb_move_seen = 0;
           s_deadline = s_fb_last_tick + pdMS_TO_TICKS(MOTOR_MOVE_TIMEOUT_MS);
           break;
 
@@ -415,7 +457,10 @@ void MotorTask(void *argument)
       }
     }
 
-    /* --- 2. 处理反馈 (非阻塞排空) --- */
+    /* --- 2. 处理反馈 (非阻塞排空) ---
+     * 原厂语义: 过程/到位信号单次发送, 减速信号连续发送。
+     * 不做连续消抖(单次信号会被吃掉), 直接交给状态机——
+     * 防误触发由三道防线承担: 状态机门限 + TIM硬件滤波 + ±0.3ms脉宽窗口 */
     while (xQueueReceive(s_fb_q, &item, 0) == pdPASS)
     {
       fb_event_t e = fb_decode(item.w_us);
@@ -424,26 +469,22 @@ void MotorTask(void *argument)
       s_ring[s_ring_head] = item;                 /* 调试缓存 */
       s_ring_head = (s_ring_head + 1) % FB_RING_N;
 
-      s_fb_last_tick = xTaskGetTickCount();        /* 线路存活标记: 每条都算 */
+      s_fb_last_tick = xTaskGetTickCount();
       s_fb_seen = 1;
+      s_fb_move_seen = 1;                          /* 本次动作已见到反馈 */
 
-      if (e == pend)                               /* 连续2次相同才跳状态 */
-      {
-        if (++pend_cnt >= 2)
-        {
-          fb_accept(e);
-          pend_cnt = 0;
-        }
-      }
-      else
-      {
-        pend     = e;
-        pend_cnt = 1;
-      }
+      fb_accept(e);
     }
 
     /* --- 3. 超时检查 --- */
     now = xTaskGetTickCount();
+
+    if (s_diag_watch && (int32_t)(now - s_diag_next_tick) >= 0)
+    {
+      diag_print();
+      s_diag_next_tick = now + pdMS_TO_TICKS(500);
+    }
+
     switch (s_state)
     {
       case MOTOR_INSTALLING:
@@ -456,12 +497,13 @@ void MotorTask(void *argument)
 
       case MOTOR_OPENING:
       case MOTOR_CLOSING:
-        /* 前1s为启动宽限期: 电机收到指令到开始发反馈可能有延迟 */
-        if ((now - s_move_start) > pdMS_TO_TICKS(1000) &&
-            (!s_fb_seen ||
-             (now - s_fb_last_tick) > pdMS_TO_TICKS(MOTOR_FB_MOTION_LOST_MS)))
+        /* 过程信号(2.5ms)单次发送: 指令后 FIRST_TIMEOUT 内必须见到首个反馈,
+         * 证明电机收到并开始动作; 之后的巡航段静默属正常(减速段才有连续脉冲),
+         * 由总超时兜底 */
+        if (!s_fb_move_seen &&
+            (now - s_move_start) > pdMS_TO_TICKS(MOTOR_FB_FIRST_TIMEOUT_MS))
         {
-          printf("[motor] FAULT: no fb while moving\r\n");
+          printf("[motor] FAULT: no fb after command (check wiring/motor)\r\n");
           set_state(MOTOR_FAULT);
         }
         else if ((int32_t)(now - s_deadline) >= 0)
@@ -503,19 +545,12 @@ const char *motor_state_str(motor_state_t s)
 
 static motor_ret_t send_cmd(mcmd_type_t type, uint8_t speed, uint16_t raw_ms)
 {
-  motor_state_t st = s_state;
   motor_cmd_t cmd = { type, speed, raw_ms };
 
   if (s_cmd_q == NULL)
     return MOTOR_RET_NOT_INIT;
 
-  if (type != MCMD_RAW && type != MCMD_REINIT)
-  {
-    if (st == MOTOR_UNINIT || st == MOTOR_INSTALLING) return MOTOR_RET_NOT_INIT;
-    if (st == MOTOR_OPENING || st == MOTOR_CLOSING)    return MOTOR_RET_BUSY;
-    if (st == MOTOR_FAULT)                             return MOTOR_RET_FAULT;
-  }
-
+  /* 不以软件状态机拦截开/关/原始指令；由电机自身处理当前安装或运动状态。 */
   if (xQueueSend(s_cmd_q, &cmd, 0) != pdPASS)
     return MOTOR_RET_BUSY;
   return MOTOR_RET_OK;
@@ -563,8 +598,11 @@ static void cli_help(void)
          " c[1-3] close (speed, default 2)\r\n"
          " i<ms>  raw pulse: i40/i90=install, i10/20/30=fwd, i50/60/70=rev\r\n"
          " s      status\r\n"
-         " d      dump feedback log\r\n"
+         " d      toggle live PD13 feedback monitor (500ms)\r\n"
          " r      resend install pulse\r\n"
+         " k      toggle key event echo\r\n"
+         " p      dump key pin levels\r\n"
+         " l      lcd init + test pattern\r\n"
          " h      help\r\n");
 }
 
@@ -583,10 +621,43 @@ static void cli_dump(void)
     uint32_t idx = (s_ring_head + i) % FB_RING_N;
     if (s_ring[idx].w_us == 0 && s_ring[idx].per_us == 0)
       continue;
-    printf("  hi_w=%6lu us  per=%7lu us  %s\r\n",
+    printf("  lo_w=%6lu us  per=%7lu us  %s\r\n",
            (unsigned long)s_ring[idx].w_us,
            (unsigned long)s_ring[idx].per_us,
            fb_event_str(s_ring[idx].event));
+  }
+}
+
+static void diag_print(void)
+{
+  GPIO_PinState level = HAL_GPIO_ReadPin(MOTOR_FB_PORT, MOTOR_FB_PIN);
+  uint32_t age_ms = s_fb_seen
+                  ? (uint32_t)(xTaskGetTickCount() - s_fb_last_tick)
+                  : 0u;
+
+  printf("[diag] state=%s PD13=%c cap=%lu rej=%lu last_lo=%luus per=%luus fb=%s age=%lums\r\n",
+         motor_state_str(s_state),
+         (level == GPIO_PIN_SET) ? 'H' : 'L',
+         (unsigned long)s_fb_capture_count,
+         (unsigned long)s_fb_reject_count,
+         (unsigned long)s_fb_last_width_us,
+         (unsigned long)s_per_us,
+         s_fb_seen ? "seen" : "never",
+         (unsigned long)age_ms);
+}
+
+static void cli_diag_toggle(void)
+{
+  s_diag_watch = !s_diag_watch;
+  if (s_diag_watch)
+  {
+    s_diag_next_tick = xTaskGetTickCount();
+    printf("[diag] PD13 live monitor ON (500ms)\r\n");
+    cli_dump();
+  }
+  else
+  {
+    printf("[diag] PD13 live monitor OFF\r\n");
   }
 }
 
@@ -616,12 +687,18 @@ static void cli_exec(char *s)
       }
       break;
 
-    case 's': cli_status(); break;
-    case 'd': cli_dump();   break;
+    case 's': cli_status();      break;
+    case 'd': cli_diag_toggle(); break;
     case 'r':
       ret = motor_reinit();
       printf("[cli] reinit -> %d\r\n", ret);
       break;
+    case 'k':
+      printf("[cli] key echo -> %s\r\n",
+             key_toggle_echo() ? "on" : "off");
+      break;
+    case 'p': key_dump_pins(); break;
+    case 'l': lcd_test(); break;
     case 'h': cli_help();   break;
     default:  break;
   }

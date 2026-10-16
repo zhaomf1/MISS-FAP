@@ -55,3 +55,5 @@ mini_evol\motor.o: ../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2/cmsi
 mini_evol\motor.o: ../Core/Inc/peripheral/tim.h
 mini_evol\motor.o: ../Core/Inc/peripheral/usart.h
 mini_evol\motor.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/queue.h
+mini_evol\motor.o: ../Core/Inc/app/key.h
+mini_evol\motor.o: ../Core/Inc/app/lcd_st7789.h

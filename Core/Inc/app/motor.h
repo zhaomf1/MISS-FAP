@@ -3,14 +3,14 @@
   * @file    motor.h
   * @brief   SND2506-24MM-305 电动翻盖驱动器 控制/反馈接口
   *
-  * 硬件连接（飞线）：
-  *   PD13 <----> 电机 Feedback (实测2026-10-12: 空闲低电平, 每~34ms一个高脉冲,
-  *                高脉冲宽度=状态代码 0.8~7.5ms, 与规格书"低电平"描述相反)
-  *   PD14 ----> 电机 Input   (标称5V, 空闲低, 高电平单脉冲, 10~90ms)
-  *   电机 Pin1=12V, Pin2=GND, Pin5=Swio 不接
+  * 硬件连接：
+  *   PD13 <----> 电机 Feedback (空闲高电平, 低脉冲宽度=状态代码 0.8~7.5ms)
+  *   PE6 ----> VALVE5 ----> 12V_OUT5 ----> 电机 Input
+  *                (12V_IN 接 5V 时，输出高电平约为 5V；空闲低、单脉冲 10~90ms)
+  *   电机线束(按控制板说明文件): 左->右 = Feedback、空、Input、GND、VCC(12V)
   *
-  * PD13 复用为 TIM4_CH2 输入捕获 (1MHz 计数, 测高脉宽, ±0.3ms 窗口判定)
-  * PD14 复用为 GPIO 输出, 极性由 MOTOR_CMD_INVERTED 决定 (见 motor.c)
+  * PD13 复用为 TIM4_CH2 输入捕获 (1MHz 计数, 测低脉宽, ±0.3ms 窗口判定)
+  * PE6 复用为 GPIO 输出，高电平使能 VALVE5。
   ******************************************************************************
   */
 #ifndef MOTOR_H
@@ -24,11 +24,14 @@ extern "C" {
 
 /* ======================= 硬件配置（按实测调整） ======================= */
 
-/* 输出极性方案:
- *  0 = 方案C: PD14 推挽 3.3V 直推, 空闲=低, 脉冲=高          (零硬件)
- *  1 = 方案A: PD14 开漏经 2N7002 反相, 空闲=高(MOS导通->Input=0V),
- *             脉冲=拉低(MOS截止->Input 被10k上拉到5V)          (1管+1电阻) */
+/* VALVE5 为高电平使能；保持 0，空闲=低、指令脉冲=高。 */
 #define MOTOR_CMD_INVERTED          0
+
+/* PE6 硬件测点自检：
+ *  1 = MotorTask 初始化后固定输出高，所有脉冲命令不再改写 PE6；仅供量测。
+ *  0 = 正常电机脉冲控制。
+ * 测试时请断开电机 Input，或关闭电机供电，避免 VALVE5 持续导通造成误动作。 */
+#define MOTOR_PE6_STATIC_HIGH_TEST  0
 
 /* PD13 内部上拉: 反馈开漏时需要; 反馈推挽时无害(5V信号经40k弱上拉仅~40uA) */
 #define MOTOR_FB_PULLUP             1
@@ -47,15 +50,21 @@ extern "C" {
 /* 各种超时 (ms) */
 #define MOTOR_INSTALL_TIMEOUT_MS    15000  /* 发安装指令后等"下翻到位"的时限   */
 #define MOTOR_MOVE_TIMEOUT_MS       20000  /* 开/关动作整体完成时限            */
-#define MOTOR_FB_MOTION_LOST_MS     200    /* 运动中无反馈脉冲 -> 判定断线     */
+#define MOTOR_FB_FIRST_TIMEOUT_MS   2000   /* 指令后等首个反馈(2.5ms过程信号,
+                                              单次)的时限——过程信号只在启动时
+                                              发一次,之后巡航段静默属正常     */
 
-/* 反馈低脉宽标称值 (us) 及判定窗口 */
-#define MOTOR_FB_OPEN_DONE_US       800    /* 上翻到位                         */
-#define MOTOR_FB_CLOSED_DONE_US     7500   /* 下翻到位                         */
-#define MOTOR_FB_UP_DECEL_US        3300   /* 上翻减速                         */
-#define MOTOR_FB_DOWN_DECEL_US      5000   /* 下翻减速                         */
-#define MOTOR_FB_MOVING_US          2500   /* 过程(上/下翻共用,靠指令方向区分) */
+/* Feedback 空闲为高电平；低电平脉冲宽度标称值 (us) 及判定窗口。
+ * 原厂语义(2026-10-15 确认): 过程/到位信号为"单次脉冲"(动作启动/到达时各发一次,
+ * 之后线静默空闲); 减速信号(3.3/5.0ms)在减速期间连续重复发送 */
+#define MOTOR_FB_OPEN_DONE_US       800    /* 上翻到位, 单次                   */
+#define MOTOR_FB_CLOSED_DONE_US     7500   /* 下翻到位, 单次                   */
+#define MOTOR_FB_UP_DECEL_US        3300   /* 上翻减速, 减速期间连续           */
+#define MOTOR_FB_DOWN_DECEL_US      5000   /* 下翻减速, 减速期间连续           */
+#define MOTOR_FB_MOVING_US          2500   /* 运动启动, 单次(上/下共用,靠指令方向区分) */
 #define MOTOR_FB_WIN_US             300    /* 窗口 ±300us (规格误差±0.1ms,留裕量) */
+#define MOTOR_FB_MIN_VALID_US        (MOTOR_FB_OPEN_DONE_US - MOTOR_FB_WIN_US)
+#define MOTOR_FB_MAX_VALID_US        (MOTOR_FB_CLOSED_DONE_US + MOTOR_FB_WIN_US)
 
 /* 指令脉宽 (ms) */
 #define MOTOR_PULSE_UP_1            10
@@ -84,8 +93,8 @@ typedef enum { MOTOR_SIDE_RIGHT = 0, MOTOR_SIDE_LEFT } motor_side_t;
 
 typedef enum {
   MOTOR_RET_OK = 0,
-  MOTOR_RET_BUSY,      /* 正在安装/开/关动作中                  */
-  MOTOR_RET_NOT_INIT,  /* 尚未完成安装方式初始化                */
+  MOTOR_RET_BUSY,      /* 正在开/关动作中或命令队列占用         */
+  MOTOR_RET_NOT_INIT,  /* 电机任务/命令队列尚未初始化          */
   MOTOR_RET_FAULT,
   MOTOR_RET_ERR,
 } motor_ret_t;
