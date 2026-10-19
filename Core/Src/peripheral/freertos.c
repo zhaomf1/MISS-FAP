@@ -53,12 +53,6 @@ static const osThreadAttr_t motorTask_attributes = {
   .stack_size = 1024 * 4,
   .priority = (osPriority_t) osPriorityAboveNormal,
 };
-static osThreadId_t cliTaskHandle;
-static const osThreadAttr_t cliTask_attributes = {
-  .name = "cliTask",
-  .stack_size = 1024 * 4,
-  .priority = (osPriority_t) osPriorityLow,
-};
 static osThreadId_t keyTaskHandle;
 static const osThreadAttr_t keyTask_attributes = {
   .name = "keyTask",
@@ -116,7 +110,6 @@ void MX_FREERTOS_Init(void) {
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
   motorTaskHandle = osThreadNew(MotorTask, NULL, &motorTask_attributes);
-  cliTaskHandle = osThreadNew(CliTask, NULL, &cliTask_attributes);
   keyTaskHandle = osThreadNew(KeyTask, NULL, &keyTask_attributes);
   /* USER CODE END RTOS_THREADS */
 
