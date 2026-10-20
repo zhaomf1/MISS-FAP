@@ -39,8 +39,6 @@ mini_evol\motor.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_tim.h
 mini_evol\motor.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_tim_ex.h
 mini_evol\motor.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h
 mini_evol\motor.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\stdio.h
-mini_evol\motor.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\stdlib.h
-mini_evol\motor.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\ctype.h
 mini_evol\motor.o: ../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2/cmsis_os.h
 mini_evol\motor.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/FreeRTOS.h
 mini_evol\motor.o: ../Core/Inc/peripheral/FreeRTOSConfig.h
@@ -53,7 +51,4 @@ mini_evol\motor.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/task.h
 mini_evol\motor.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/list.h
 mini_evol\motor.o: ../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2/cmsis_os2.h
 mini_evol\motor.o: ../Core/Inc/peripheral/tim.h
-mini_evol\motor.o: ../Core/Inc/peripheral/usart.h
 mini_evol\motor.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/queue.h
-mini_evol\motor.o: ../Core/Inc/app/key.h
-mini_evol\motor.o: ../Core/Inc/app/lcd_st7789.h

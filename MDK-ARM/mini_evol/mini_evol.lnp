@@ -4,6 +4,8 @@
 "mini_evol\motor.o"
 "mini_evol\key.o"
 "mini_evol\lcd_st7789.o"
+"mini_evol\ui.o"
+"mini_evol\ui_font.o"
 "mini_evol\gpio.o"
 "mini_evol\freertos.o"
 "mini_evol\dma.o"

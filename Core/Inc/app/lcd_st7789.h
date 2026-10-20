@@ -22,8 +22,9 @@ extern "C" {
 
 #include "main.h"
 
-#define LCD_W   240
-#define LCD_H   320
+#define LCD_W   320     /* 横屏(2026-10-20): MADCTL=0x60 转90度 */
+#define LCD_H   240
+#define LCD_MADCTL_VAL   0x60    /* 0x00=竖屏 0x60=横屏(转90度) 0xA0=反向横屏 */
 
 /* 背光极性: 1=高电平点亮 */
 #define LCD_BLK_ACTIVE_HIGH   1

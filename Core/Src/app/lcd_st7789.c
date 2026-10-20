@@ -106,7 +106,7 @@ void lcd_set_backlight(int on)
   */
 static void lcd_init_regs(void)
 {
-  static const uint8_t madctl[]  = {0x00};     /* 竖屏 240x320 */
+  static const uint8_t madctl[]  = {LCD_MADCTL_VAL};     /* 竖屏 240x320 */
   static const uint8_t colmod[]  = {0x05};     /* 16bit RGB565 */
   static const uint8_t porctrl[] = {0x05, 0x05, 0x00, 0x33, 0x33};
   static const uint8_t gctrl[]   = {0x35};
