@@ -28,6 +28,7 @@
 #include "motor.h"
 #include "iwdg.h"
 #include "key.h"
+#include "ui.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -52,6 +53,12 @@ static const osThreadAttr_t motorTask_attributes = {
   .name = "motorTask",
   .stack_size = 1024 * 4,
   .priority = (osPriority_t) osPriorityAboveNormal,
+};
+static osThreadId_t uiTaskHandle;
+static const osThreadAttr_t uiTask_attributes = {
+  .name = "uiTask",
+  .stack_size = 2048 * 4,
+  .priority = (osPriority_t) osPriorityNormal,
 };
 static osThreadId_t keyTaskHandle;
 static const osThreadAttr_t keyTask_attributes = {
@@ -111,6 +118,7 @@ void MX_FREERTOS_Init(void) {
   /* add threads, ... */
   motorTaskHandle = osThreadNew(MotorTask, NULL, &motorTask_attributes);
   keyTaskHandle = osThreadNew(KeyTask, NULL, &keyTask_attributes);
+  uiTaskHandle = osThreadNew(UiTask, NULL, &uiTask_attributes);
   /* USER CODE END RTOS_THREADS */
 
   /* USER CODE BEGIN RTOS_EVENTS */
