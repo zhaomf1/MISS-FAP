@@ -816,16 +816,17 @@ ARM Macro Assembler    Page 13
 Command Line: --debug --xref --diag_suppress=9931 --cpu=Cortex-M4.fp --apcs=int
 erwork --depend=mini_evol\startup_stm32f405xx.d -omini_evol\startup_stm32f405xx
 .o -I../Core/Inc -I../Core/Inc/app -I../Core/Inc/peripheral -I../Core/Inc/syste
-m -I../Drivers/STM32F4xx_HAL_Driver/Inc -I../Drivers/STM32F4xx_HAL_Driver/Inc/L
-egacy -I../Middlewares/Third_Party/FreeRTOS/Source/include -I../Middlewares/Thi
-rd_Party/FreeRTOS/Source/CMSIS_RTOS_V2 -I../Middlewares/Third_Party/FreeRTOS/So
-urce/portable/RVDS/ARM_CM4F -I../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I..
-/Drivers/CMSIS/Include -I"E:\work\MISS CELL\MISS+FAP联用\温控\code\MISS-FAP\MDK
--ARM\RTE" -IC:\Keil_v5\ARM\PACK\ARM\CMSIS\4.5.0\CMSIS\Include -IC:\Keil_v5\ARM\
-PACK\Keil\STM32F4xx_DFP\2.10.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include --pred
-efine="__MICROLIB SETA 1" --predefine="__UVISION_VERSION SETA 518" --predefine=
-"_RTE_ SETA 1" --predefine="STM32F405xx SETA 1" --list=startup_stm32f405xx.lst 
-startup_stm32f405xx.s
+m -I../Middleware/LVGL -I../Middleware/LVGL/include -I../Middleware/LVGL/src -I
+../Drivers/STM32F4xx_HAL_Driver/Inc -I../Drivers/STM32F4xx_HAL_Driver/Inc/Legac
+y -I../Middlewares/Third_Party/FreeRTOS/Source/include -I../Middlewares/Third_P
+arty/FreeRTOS/Source/CMSIS_RTOS_V2 -I../Middlewares/Third_Party/FreeRTOS/Source
+/portable/RVDS/ARM_CM4F -I../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I../Dri
+vers/CMSIS/Include -I"E:\work\MISS CELL\MISS+FAP联用\温控\code\MISS-FAP\MDK-ARM
+\RTE" -IC:\Keil_v5\ARM\PACK\ARM\CMSIS\4.5.0\CMSIS\Include -IC:\Keil_v5\ARM\PACK
+\Keil\STM32F4xx_DFP\2.10.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include --predefin
+e="__MICROLIB SETA 1" --predefine="__UVISION_VERSION SETA 518" --predefine="_RT
+E_ SETA 1" --predefine="STM32F405xx SETA 1" --list=startup_stm32f405xx.lst star
+tup_stm32f405xx.s
 
 
 
