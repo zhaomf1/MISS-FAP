@@ -75,13 +75,6 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-  /* 尽早把电机指令线 PD13 拉低(寄存器级, 不依赖任何外设初始化):
-   * 防止复位后悬空窗口内 LED_R 支路拉高该线, 电机收到假脉冲 */
-  RCC->AHB1ENR |= RCC_AHB1ENR_GPIODEN;
-  (void)RCC->AHB1ENR;                                        /* 等时钟生效 */
-  GPIOD->MODER = (GPIOD->MODER & ~(3UL << (13 * 2))) | (1UL << (13 * 2));  /* PD13 输出模式 */
-  GPIOD->OTYPER &= ~(1UL << 13);                             /* 推挽 */
-  GPIOD->BSRR = 1UL << (13 + 16);                            /* 输出低电平 */
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -116,21 +109,11 @@ int main(void)
   MX_USART1_UART_Init();
   MX_USART2_UART_Init();
   MX_USART3_UART_Init();
-  /* 测试板(2026-10-16): PC6/PC7 改作开关舱门按键, 禁止初始化 USART6 (按键
-   * 驱动会运行时释放引脚, 但保留此注释可避免启动期间引脚被串口占用)。
-   * 若 CubeMX 重新生成本文件, 需重新注释这一行 */
+  /* USART6 未启用，PC6/PC7 保留给后续应用扩展。 */
   // MX_USART6_UART_Init();
   /* USER CODE BEGIN 2 */
   printf("system start\n");
-
-  /* PE6=VALVE_5 输出级 -> 电机12V供电开关: 上电拉高给电机供电 */
-  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_6, GPIO_PIN_SET);
-
-  /* 再次把电机指令线 PD13 拉低: MX_TIM4_Init 曾把它配成 AF2(TIM4_CH2,
-   * 定时器未启动=高阻悬空), 这里夺回 GPIO 输出低, 关闭假脉冲风险 */
-  GPIOD->MODER = (GPIOD->MODER & ~(3UL << (13 * 2))) | (1UL << (13 * 2));
-  GPIOD->OTYPER &= ~(1UL << 13);
-  GPIOD->BSRR = 1UL << (13 + 16);
+  /* 仅初始化显示驱动；UI绘制和业务任务已移除。 */
 
   /* USER CODE END 2 */
 

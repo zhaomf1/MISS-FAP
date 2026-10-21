@@ -76,6 +76,7 @@ static volatile TickType_t   s_deadline = 0;     /* 当前阶段超时时刻 */
 static volatile TickType_t   s_move_start = 0;   /* 本次动作发起时刻 */
 
 static volatile uint32_t    s_cap_fall = 0;      /* ISR: 最近下降沿(低脉冲开始) */
+static volatile uint8_t     s_power_on = 0;
 
 /* Private function prototypes ------------------------------------------------*/
 static void motor_hw_init(void);
@@ -137,6 +138,7 @@ static void motor_hw_init(void)
   HAL_NVIC_EnableIRQ(TIM4_IRQn);
   HAL_TIM_IC_Start_IT(&htim4, TIM_CHANNEL_3);
   HAL_TIM_IC_Start_IT(&htim4, TIM_CHANNEL_4);
+  motor_power_set(1);
 }
 
 /**
@@ -461,4 +463,16 @@ motor_ret_t motor_close(motor_speed_t speed)
   if (speed < MOTOR_SPEED_1) speed = MOTOR_SPEED_2;
   if (speed > MOTOR_SPEED_3) speed = MOTOR_SPEED_2;
   return send_cmd(MCMD_CLOSE, (uint8_t)speed);
+}
+
+void motor_power_set(int on)
+{
+  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_6,
+                    on ? GPIO_PIN_SET : GPIO_PIN_RESET);
+  s_power_on = on ? 1u : 0u;
+}
+
+int motor_power_get(void)
+{
+  return s_power_on ? 1 : 0;
 }

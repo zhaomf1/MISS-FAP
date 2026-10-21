@@ -38,7 +38,6 @@ mini_evol\key.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_spi.h
 mini_evol\key.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_tim.h
 mini_evol\key.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_tim_ex.h
 mini_evol\key.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h
-mini_evol\key.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\stdio.h
 mini_evol\key.o: ../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2/cmsis_os.h
 mini_evol\key.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/FreeRTOS.h
 mini_evol\key.o: ../Core/Inc/peripheral/FreeRTOSConfig.h
@@ -51,4 +50,4 @@ mini_evol\key.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/task.h
 mini_evol\key.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/list.h
 mini_evol\key.o: ../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2/cmsis_os2.h
 mini_evol\key.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/queue.h
-mini_evol\key.o: ../Core/Inc/peripheral/usart.h
+mini_evol\key.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\stdio.h

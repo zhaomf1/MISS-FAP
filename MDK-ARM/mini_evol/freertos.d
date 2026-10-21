@@ -50,5 +50,5 @@ mini_evol\freertos.o: ../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2/c
 mini_evol\freertos.o: ../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2/cmsis_os2.h
 mini_evol\freertos.o: ../Core/Inc/app/motor.h
 mini_evol\freertos.o: ../Core/Inc/peripheral/iwdg.h
+mini_evol\freertos.o: ../Core/Inc/app/lvgl_port.h
 mini_evol\freertos.o: ../Core/Inc/app/key.h
-mini_evol\freertos.o: ../Core/Inc/app/ui.h

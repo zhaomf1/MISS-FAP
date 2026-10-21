@@ -106,6 +106,8 @@ void MotorTask(void *argument);
 motor_ret_t motor_init(void);                       /* 初始化电机(安装指令), 电机自校准 */
 motor_ret_t motor_open(motor_speed_t speed);        /* 上翻开盖, 到位自动停 */
 motor_ret_t motor_close(motor_speed_t speed);       /* 下翻关盖, 到位自动停 */
+void motor_power_set(int on);                      /* 电机12V电源开关 */
+int  motor_power_get(void);
 motor_state_t motor_get_state(void);                /* 查询状态 */
 const char   *motor_state_str(motor_state_t s);
 

@@ -406,14 +406,9 @@
               <FilePath>../Core/Src/app/lcd_st7789.c</FilePath>
             </File>
             <File>
-              <FileName>ui.c</FileName>
+              <FileName>lvgl_port.c</FileName>
               <FileType>1</FileType>
-              <FilePath>../Core/Src/app/ui.c</FilePath>
-            </File>
-            <File>
-              <FileName>ui_font.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>../Core/Src/app/ui_font.c</FilePath>
+              <FilePath>../Core/Src/app/lvgl_port.c</FilePath>
             </File>
             <File>
               <FileName>gpio.c</FileName>

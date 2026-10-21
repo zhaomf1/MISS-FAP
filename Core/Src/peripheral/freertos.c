@@ -27,8 +27,8 @@
 /* USER CODE BEGIN Includes */
 #include "motor.h"
 #include "iwdg.h"
+#include "lvgl_port.h"
 #include "key.h"
-#include "ui.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -48,19 +48,16 @@
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN Variables */
-static osThreadId_t motorTaskHandle;
 static const osThreadAttr_t motorTask_attributes = {
   .name = "motorTask",
   .stack_size = 1024 * 4,
   .priority = (osPriority_t) osPriorityAboveNormal,
 };
-static osThreadId_t uiTaskHandle;
 static const osThreadAttr_t uiTask_attributes = {
   .name = "uiTask",
   .stack_size = 2048 * 4,
   .priority = (osPriority_t) osPriorityNormal,
 };
-static osThreadId_t keyTaskHandle;
 static const osThreadAttr_t keyTask_attributes = {
   .name = "keyTask",
   .stack_size = 512 * 4,
@@ -115,10 +112,11 @@ void MX_FREERTOS_Init(void) {
   defaultTaskHandle = osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
+  /* 电机驱动服务任务：只提供底层控制和状态反馈，不自动执行动作。 */
+  osThreadNew(MotorTask, NULL, &motorTask_attributes);
+  osThreadNew(lvgl_port_task, NULL, &uiTask_attributes);
+  osThreadNew(key_task, NULL, &keyTask_attributes);
   /* add threads, ... */
-  motorTaskHandle = osThreadNew(MotorTask, NULL, &motorTask_attributes);
-  keyTaskHandle = osThreadNew(KeyTask, NULL, &keyTask_attributes);
-  uiTaskHandle = osThreadNew(UiTask, NULL, &uiTask_attributes);
   /* USER CODE END RTOS_THREADS */
 
   /* USER CODE BEGIN RTOS_EVENTS */
