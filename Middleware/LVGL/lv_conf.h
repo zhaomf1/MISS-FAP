@@ -1,2 +1,2 @@
-/* 工程配置集中在官方 v9.6.0 模板中。 */
+/* LVGL v9.6.0 project configuration. */
 #include "lv_conf_template.h"

@@ -275,3 +275,5 @@ mini_evol\lvgl_port.o: ../Middleware/LVGL/include/lvgl/api_map/lv_api_map_v9_2.h
 mini_evol\lvgl_port.o: ../Middleware/LVGL/include/lvgl/api_map/lv_api_map_v9_3.h
 mini_evol\lvgl_port.o: ../Middleware/LVGL/include/lvgl/api_map/lv_api_map_v9_4.h
 mini_evol\lvgl_port.o: ../Middleware/LVGL/include/lvgl/api_map/lv_api_map_v9_5.h
+mini_evol\lvgl_port.o: ../Core/Inc/app/key.h
+mini_evol\lvgl_port.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\stdio.h
