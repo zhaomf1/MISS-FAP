@@ -3,6 +3,8 @@
 #include "cmsis_os.h"
 #include "lvgl.h"
 #include "key.h"
+#include "generated/gui_guider.h"
+#include "generated/gg_utils.h"
 #include <stdio.h>
 
 #define LVGL_BUF_LINES 8
@@ -12,6 +14,8 @@ static lv_color_t s_display_buf[320 * LVGL_BUF_LINES];
 static lv_indev_t *s_keypad;
 static key_id_t s_last_key = KEY_OK;
 static lv_group_t *s_key_group;
+
+extern void gg_ui_init(void);
 
 static uint32_t key_to_lvgl(key_id_t key)
 {
@@ -37,20 +41,11 @@ static void keypad_read_cb(lv_indev_t *indev, lv_indev_data_t *data)
         uint32_t key = key_to_lvgl(event.id);
         if (key == 0) continue;
 
-        /* 显式处理方向键，避免不同 LVGL v9 配置下 keypad 导航不生效。 */
-        if (event.type == KEY_EVENT_PRESS && s_key_group != NULL) {
-            if (event.id == KEY_LEFT || event.id == KEY_UP) {
-                lv_group_focus_prev(s_key_group);
-                data->key = 0;
-                data->state = LV_INDEV_STATE_RELEASED;
-                continue;
-            }
-            if (event.id == KEY_RIGHT || event.id == KEY_DOWN) {
-                lv_group_focus_next(s_key_group);
-                data->key = 0;
-                data->state = LV_INDEV_STATE_RELEASED;
-                continue;
-            }
+        if (event.type == KEY_EVENT_PRESS) {
+            ui_key_event(key);
+            data->key = 0;
+            data->state = LV_INDEV_STATE_RELEASED;
+            continue;
         }
 
         data->key = key;
@@ -193,11 +188,7 @@ void lvgl_port_init(void)
                            LV_DISPLAY_RENDER_MODE_PARTIAL);
     lv_display_set_flush_cb(s_display, lvgl_flush_cb);
 
-    /* 第一阶段测试控件，确认 LVGL 到 ST7789 的链路正常。 */
-    lv_obj_t *label = lv_label_create(lv_screen_active());
-    lv_label_set_text(label, "LVGL OK");
-    lv_obj_center(label);
-    lvgl_input_test_init();
+    gg_ui_init();
 }
 
 void lvgl_port_tick_inc(uint32_t elapsed_ms)

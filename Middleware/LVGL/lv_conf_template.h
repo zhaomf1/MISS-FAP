@@ -1073,7 +1073,7 @@
 #define LV_FONT_SOURCE_HAN_SANS_SC_14_CJK 0
 
 /** SourceHanSansSC 16 (CJK) */
-#define LV_FONT_SOURCE_HAN_SANS_SC_16_CJK 0
+#define LV_FONT_SOURCE_HAN_SANS_SC_16_CJK 1
 
 /** Pixel perfect monospaced fonts */
 #define LV_FONT_UNSCII_8 0

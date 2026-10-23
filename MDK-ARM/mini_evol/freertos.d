@@ -52,3 +52,4 @@ mini_evol\freertos.o: ../Core/Inc/app/motor.h
 mini_evol\freertos.o: ../Core/Inc/peripheral/iwdg.h
 mini_evol\freertos.o: ../Core/Inc/app/lvgl_port.h
 mini_evol\freertos.o: ../Core/Inc/app/key.h
+mini_evol\freertos.o: ../Core/Inc/common/modbus_rtu.h

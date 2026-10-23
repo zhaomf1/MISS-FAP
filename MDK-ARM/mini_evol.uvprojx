@@ -332,7 +332,7 @@
               <MiscControls></MiscControls>
               <Define>USE_HAL_DRIVER,STM32F405xx</Define>
               <Undefine></Undefine>
-              <IncludePath>../Core/Inc;../Core/Inc/app;../Core/Inc/peripheral;../Core/Inc/system;../Middleware/LVGL;../Middleware/LVGL/include;../Middleware/LVGL/src;../Drivers/STM32F4xx_HAL_Driver/Inc;../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy;../Middlewares/Third_Party/FreeRTOS/Source/include;../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2;../Middlewares/Third_Party/FreeRTOS/Source/portable/RVDS/ARM_CM4F;../Drivers/CMSIS/Device/ST/STM32F4xx/Include;../Drivers/CMSIS/Include</IncludePath>
+              <IncludePath>../Core/Inc;../Core/Inc/app;../Core/Inc/common;../Core/Inc/peripheral;../Core/Inc/system;../Core/Src/app/generated;../Middleware/LVGL;../Middleware/LVGL/include;../Middleware/LVGL/src;../Drivers/STM32F4xx_HAL_Driver/Inc;../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy;../Middlewares/Third_Party/FreeRTOS/Source/include;../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2;../Middlewares/Third_Party/FreeRTOS/Source/portable/RVDS/ARM_CM4F;../Drivers/CMSIS/Device/ST/STM32F4xx/Include;../Drivers/CMSIS/Include</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -349,7 +349,7 @@
               <MiscControls></MiscControls>
               <Define></Define>
               <Undefine></Undefine>
-              <IncludePath>../Core/Inc;../Core/Inc/app;../Core/Inc/peripheral;../Core/Inc/system;../Middleware/LVGL;../Middleware/LVGL/include;../Middleware/LVGL/src;../Drivers/STM32F4xx_HAL_Driver/Inc;../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy;../Middlewares/Third_Party/FreeRTOS/Source/include;../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2;../Middlewares/Third_Party/FreeRTOS/Source/portable/RVDS/ARM_CM4F;../Drivers/CMSIS/Device/ST/STM32F4xx/Include;../Drivers/CMSIS/Include</IncludePath>
+              <IncludePath>../Core/Inc;../Core/Inc/app;../Core/Inc/common;../Core/Inc/peripheral;../Core/Inc/system;../Core/Src/app/generated;../Middleware/LVGL;../Middleware/LVGL/include;../Middleware/LVGL/src;../Drivers/STM32F4xx_HAL_Driver/Inc;../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy;../Middlewares/Third_Party/FreeRTOS/Source/include;../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2;../Middlewares/Third_Party/FreeRTOS/Source/portable/RVDS/ARM_CM4F;../Drivers/CMSIS/Device/ST/STM32F4xx/Include;../Drivers/CMSIS/Include</IncludePath>
             </VariousControls>
           </Aads>
           <LDads>
@@ -383,7 +383,7 @@
           </Files>
         </Group>
         <Group>
-          <GroupName>Application/User/Core</GroupName>
+          <GroupName>Application/User/Core/App</GroupName>
           <Files>
             <File>
               <FileName>main.c</FileName>
@@ -409,6 +409,36 @@
               <FileName>lvgl_port.c</FileName>
               <FileType>1</FileType>
               <FilePath>../Core/Src/app/lvgl_port.c</FilePath>
+            </File>
+            <File>
+              <FileName>dev_temp_ctrl.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>../Core/Src/app/dev_temp_ctrl.c</FilePath>
+            </File>
+            <File>
+              <FileName>ui_utf8.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>../Core/Src/app/ui_utf8.c</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>Application/User/Core/Common</GroupName>
+          <Files>
+            <File>
+              <FileName>modbus_rtu.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>../Core/Src/common/modbus_rtu.c</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>Application/User/Core/Peripheral</GroupName>
+          <Files>
+            <File>
+              <FileName>rs485_port.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>../Core/Src/peripheral/rs485_port.c</FilePath>
             </File>
             <File>
               <FileName>gpio.c</FileName>
@@ -455,6 +485,11 @@
               <FileType>1</FileType>
               <FilePath>../Core/Src/peripheral/usart.c</FilePath>
             </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>Application/User/Core/System</GroupName>
+          <Files>
             <File>
               <FileName>stm32f4xx_it.c</FileName>
               <FileType>1</FileType>
@@ -469,6 +504,11 @@
               <FileName>stm32f4xx_hal_timebase_tim.c</FileName>
               <FileType>1</FileType>
               <FilePath>../Core/Src/system/stm32f4xx_hal_timebase_tim.c</FilePath>
+            </File>
+            <File>
+              <FileName>system_stm32f4xx.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>../Core/Src/system/system_stm32f4xx.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -593,13 +633,18 @@
           </Files>
         </Group>
         <Group>
-          <GroupName>Drivers/CMSIS</GroupName>
+          <GroupName>Application/User/Core/UI Generated</GroupName>
           <Files>
-            <File>
-              <FileName>system_stm32f4xx.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>../Core/Src/system/system_stm32f4xx.c</FilePath>
-            </File>
+            <File><FileName>gg_ui_adapter.c</FileName><FileType>1</FileType><FilePath>../Core/Src/app/generated/gg_ui_adapter.c</FilePath></File>
+            <File><FileName>gg_utils.c</FileName><FileType>1</FileType><FilePath>../Core/Src/app/generated/gg_utils.c</FilePath></File>
+            <File><FileName>gg_event_layer_bottom.c</FileName><FileType>1</FileType><FilePath>../Core/Src/app/generated/events/gg_event_layer_bottom.c</FilePath></File>
+            <File><FileName>gg_event_layer_sys.c</FileName><FileType>1</FileType><FilePath>../Core/Src/app/generated/events/gg_event_layer_sys.c</FilePath></File>
+            <File><FileName>gg_event_layer_top.c</FileName><FileType>1</FileType><FilePath>../Core/Src/app/generated/events/gg_event_layer_top.c</FilePath></File>
+            <File><FileName>gg_event_screen.c</FileName><FileType>1</FileType><FilePath>../Core/Src/app/generated/events/gg_event_screen.c</FilePath></File>
+            <File><FileName>gg_layer_bottom.c</FileName><FileType>1</FileType><FilePath>../Core/Src/app/generated/screens/gg_layer_bottom.c</FilePath></File>
+            <File><FileName>gg_layer_sys.c</FileName><FileType>1</FileType><FilePath>../Core/Src/app/generated/screens/gg_layer_sys.c</FilePath></File>
+            <File><FileName>gg_layer_top.c</FileName><FileType>1</FileType><FilePath>../Core/Src/app/generated/screens/gg_layer_top.c</FilePath></File>
+            <File><FileName>gg_screen.c</FileName><FileType>1</FileType><FilePath>../Core/Src/app/generated/screens/gg_screen.c</FilePath></File>
           </Files>
         </Group>
         <Group>
@@ -1916,9 +1961,6 @@
               <FilePath>../Middlewares/Third_Party/FreeRTOS/Source/portable/RVDS/ARM_CM4F/port.c</FilePath>
             </File>
           </Files>
-        </Group>
-        <Group>
-          <GroupName>::CMSIS</GroupName>
         </Group>
       </Groups>
     </Target>

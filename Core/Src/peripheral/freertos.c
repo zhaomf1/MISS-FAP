@@ -29,6 +29,7 @@
 #include "iwdg.h"
 #include "lvgl_port.h"
 #include "key.h"
+#include "modbus_rtu.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -88,6 +89,11 @@ void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
   */
 void MX_FREERTOS_Init(void) {
   /* USER CODE BEGIN Init */
+
+  /* RTOS synchronization objects must be created after osKernelInitialize(). */
+  if (modbus_rtu_init() != MODBUS_OK) {
+    Error_Handler();
+  }
 
   /* USER CODE END Init */
 
