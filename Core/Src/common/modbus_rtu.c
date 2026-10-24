@@ -44,8 +44,16 @@ static int transaction(uint8_t slave, uint8_t func, const uint8_t *payload, uint
         if (rx[1] & 0x80) return MODBUS_ERR_EXCEPTION;
         if (func == MODBUS_FC_READ_INPUT_REGS || func == MODBUS_FC_READ_HOLDING_REGS) {
             if (rx_len < 5 || rx[2] != expected_data_len || rx_len != (uint16_t)(5 + expected_data_len) || (expected_data_len & 1u)) return MODBUS_ERR_RESPONSE;
-            for (uint16_t i = 0; i < expected_data_len / 2; ++i) data[i] = (uint8_t)((rx[3 + i * 2] << 8) | rx[4 + i * 2]);
-        } else if (rx_len != 8 || rx[1] != func) return MODBUS_ERR_RESPONSE;
+            /* Preserve network-order BYTES; read_regs assembles signed/unsigned
+             * 16-bit register values afterwards. The former uint8_t word cast
+             * discarded the high byte and left half of raw[] uninitialized. */
+            for (uint16_t i = 0; i < expected_data_len; ++i) data[i] = rx[3 + i];
+        } else {
+            if(rx_len != 8 || rx[1] != func) return MODBUS_ERR_RESPONSE;
+            /* FC05/06 must echo both address and value, not just frame length. */
+            for(uint16_t i = 0; i < 4; ++i)
+                if(rx[2 + i] != payload[i]) return MODBUS_ERR_RESPONSE;
+        }
         return MODBUS_OK;
     }
     return MODBUS_ERR_PORT;

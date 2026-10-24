@@ -53,3 +53,6 @@ mini_evol\freertos.o: ../Core/Inc/peripheral/iwdg.h
 mini_evol\freertos.o: ../Core/Inc/app/lvgl_port.h
 mini_evol\freertos.o: ../Core/Inc/app/key.h
 mini_evol\freertos.o: ../Core/Inc/common/modbus_rtu.h
+mini_evol\freertos.o: ../Core/Inc/app/app_service.h
+mini_evol\freertos.o: ../Core/Inc/app/incubator_model.h
+mini_evol\freertos.o: ../Core/Inc/app/temp_service.h

@@ -72,6 +72,9 @@ static QueueHandle_t     s_cmd_q;      /* motor_cmd_t, 深度1: 忙时直接拒�
 static QueueHandle_t     s_fb_q;       /* uint32_t 低脉宽(us), ISR->task */
 
 static volatile motor_state_t s_state = MOTOR_UNINIT;
+static volatile uint32_t s_feedback_ms;
+static volatile uint8_t s_feedback_seen;
+static volatile uint8_t s_command_pending;
 static volatile TickType_t   s_deadline = 0;     /* 当前阶段超时时刻 */
 static volatile TickType_t   s_move_start = 0;   /* 本次动作发起时刻 */
 
@@ -224,6 +227,10 @@ static void set_state(motor_state_t st)
   */
 static void fb_accept(fb_event_t e)
 {
+  if(e == FB_OPEN_DONE || e == FB_CLOSED_DONE) {
+    s_feedback_ms = HAL_GetTick();
+    s_feedback_seen = 1;
+  }
   switch (s_state)
   {
     case MOTOR_INSTALLING:
@@ -357,6 +364,7 @@ void MotorTask(void *argument)
           motor_do_install();
           break;
       }
+      s_command_pending = 0;
     }
 
     /* --- 2. 处理反馈 (非阻塞排空) --- */
@@ -402,6 +410,13 @@ motor_state_t motor_get_state(void)
   return s_state;
 }
 
+uint32_t motor_feedback_age_ms(void)
+{
+  return s_feedback_seen ? HAL_GetTick() - s_feedback_ms : UINT32_MAX;
+}
+
+int motor_command_pending(void) { return s_command_pending != 0; }
+
 const char *motor_state_str(motor_state_t s)
 {
   switch (s)
@@ -424,14 +439,18 @@ static motor_ret_t send_cmd(mcmd_type_t type, uint8_t speed)
 
   if (s_cmd_q == NULL)
     return MOTOR_RET_NOT_INIT;
+  if(s_command_pending) return MOTOR_RET_BUSY;
 
   /* 命令门禁: 安装/运动中拒绝, FAULT 须先 motor_init() 恢复 */
   if (st == MOTOR_UNINIT || st == MOTOR_INSTALLING) return MOTOR_RET_NOT_INIT;
   if (st == MOTOR_OPENING || st == MOTOR_CLOSING)    return MOTOR_RET_BUSY;
   if (st == MOTOR_FAULT)                             return MOTOR_RET_FAULT;
 
-  if (xQueueSend(s_cmd_q, &cmd, 0) != pdPASS)
+  s_command_pending = 1;
+  if (xQueueSend(s_cmd_q, &cmd, 0) != pdPASS) {
+    s_command_pending = 0;
     return MOTOR_RET_BUSY;
+  }
   return MOTOR_RET_OK;
 }
 
@@ -441,13 +460,17 @@ motor_ret_t motor_init(void)
 
   if (s_cmd_q == NULL)
     return MOTOR_RET_NOT_INIT;
+  if(s_command_pending) return MOTOR_RET_BUSY;
 
   /* 安装指令任何时候都允许(含 FAULT 恢复); 仅安装中拒收 */
   if (s_state == MOTOR_INSTALLING)
     return MOTOR_RET_BUSY;
 
-  if (xQueueSend(s_cmd_q, &cmd, 0) != pdPASS)
+  s_command_pending = 1;
+  if (xQueueSend(s_cmd_q, &cmd, 0) != pdPASS) {
+    s_command_pending = 0;
     return MOTOR_RET_BUSY;
+  }
   return MOTOR_RET_OK;
 }
 

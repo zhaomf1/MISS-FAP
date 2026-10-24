@@ -416,39 +416,34 @@
               <FilePath>../Core/Src/app/dev_temp_ctrl.c</FilePath>
             </File>
             <File>
-              <FileName>ui_utf8.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>../Core/Src/app/ui_utf8.c</FilePath>
-            </File>
-            <File>
               <FileName>ui_layout.c</FileName>
               <FileType>1</FileType>
               <FilePath>../Core/Src/app/ui_layout.c</FilePath>
             </File>
             <File>
-              <FileName>lv_font_ui_16.c</FileName>
+              <FileName>incubator_model.c</FileName>
               <FileType>1</FileType>
-              <FilePath>../Core/Src/font/lv_font_ui_16.c</FilePath>
+              <FilePath>../Core/Src/app/incubator_model.c</FilePath>
             </File>
             <File>
-              <FileName>lv_font_ui_12.c</FileName>
+              <FileName>temp_calibration.c</FileName>
               <FileType>1</FileType>
-              <FilePath>../Core/Src/font/lv_font_ui_12.c</FilePath>
+              <FilePath>../Core/Src/app/temp_calibration.c</FilePath>
             </File>
             <File>
-              <FileName>lv_font_ui_14.c</FileName>
+              <FileName>temp_service.c</FileName>
               <FileType>1</FileType>
-              <FilePath>../Core/Src/font/lv_font_ui_14.c</FilePath>
+              <FilePath>../Core/Src/app/temp_service.c</FilePath>
             </File>
             <File>
-              <FileName>lv_font_ui_28.c</FileName>
+              <FileName>app_service.c</FileName>
               <FileType>1</FileType>
-              <FilePath>../Core/Src/font/lv_font_ui_28.c</FilePath>
+              <FilePath>../Core/Src/app/app_service.c</FilePath>
             </File>
             <File>
-              <FileName>lv_font_ui_32.c</FileName>
+              <FileName>lv_font_ui_font.c</FileName>
               <FileType>1</FileType>
-              <FilePath>../Core/Src/font/lv_font_ui_32.c</FilePath>
+              <FilePath>../Core/Src/font/lv_font_ui_font.c</FilePath>
             </File>
           </Files>
         </Group>

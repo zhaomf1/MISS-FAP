@@ -30,6 +30,7 @@
 #include "lvgl_port.h"
 #include "key.h"
 #include "modbus_rtu.h"
+#include "app_service.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -64,6 +65,14 @@ static const osThreadAttr_t keyTask_attributes = {
   .stack_size = 512 * 4,
   .priority = (osPriority_t) osPriorityNormal,
 };
+static const osThreadAttr_t tempTask_attributes = {
+  .name = "tempTask", .stack_size = 4096,
+  .priority = (osPriority_t) osPriorityNormal,
+};
+static const osThreadAttr_t appTask_attributes = {
+  .name = "appTask", .stack_size = 2048,
+  .priority = (osPriority_t) osPriorityNormal,
+};
 /* USER CODE END Variables */
 /* Definitions for defaultTask */
 osThreadId_t defaultTaskHandle;
@@ -94,6 +103,7 @@ void MX_FREERTOS_Init(void) {
   if (modbus_rtu_init() != MODBUS_OK) {
     Error_Handler();
   }
+  if (!temp_service_init() || !app_service_init()) Error_Handler();
 
   /* USER CODE END Init */
 
@@ -120,6 +130,8 @@ void MX_FREERTOS_Init(void) {
   /* USER CODE BEGIN RTOS_THREADS */
   /* 电机驱动服务任务：只提供底层控制和状态反馈，不自动执行动作。 */
   osThreadNew(MotorTask, NULL, &motorTask_attributes);
+  if(osThreadNew(temp_service_task, NULL, &tempTask_attributes) == NULL) Error_Handler();
+  if(osThreadNew(app_service_task, NULL, &appTask_attributes) == NULL) Error_Handler();
   osThreadNew(lvgl_port_task, NULL, &uiTask_attributes);
   osThreadNew(key_task, NULL, &keyTask_attributes);
   /* add threads, ... */
