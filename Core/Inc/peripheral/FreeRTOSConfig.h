@@ -165,6 +165,12 @@ standard names. */
 
 /* USER CODE BEGIN Defines */
 /* Section where parameter definitions can be added (for instance, to override default ones in FreeRTOS.h) */
+
+/* 2 = fill each task stack with 0xA5 at creation and verify the last 20 bytes
+ * on every context switch. The hook in freertos.c records the offending task
+ * and halts; the IWDG then resets the MCU after ~0.5 s. ~20 bytes of TCB and
+ * a few cycles per switch, kept on deliberately for an unattended device. */
+#define configCHECK_FOR_STACK_OVERFLOW   2
 /* USER CODE END Defines */
 
 #endif /* FREERTOS_CONFIG_H */

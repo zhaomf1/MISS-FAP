@@ -56,7 +56,11 @@
 
 #if LV_USE_STDLIB_MALLOC == LV_STDLIB_BUILTIN
 /** Size of the pool `lv_malloc()` allocates from. Needs to be at least 2kB (2048). */
-#define LV_MEM_SIZE 16384
+/* 2026-10-24: 16K -> 32K. The reference page alone creates 39 objects plus the
+ * default theme and 4 display layers; 16K left too little room for the render
+ * tasks and made object creation fail silently (allocation asserts are off),
+ * which shows up as a black screen. F405 has 128K SRAM, current ZI is ~80K. */
+#define LV_MEM_SIZE 32768
 
 /** Place the pool at a fixed address instead of allocating it as a normal array.
  *  0: unused.

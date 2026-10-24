@@ -1,0 +1,20 @@
+*** Using Compiler 'V5.06 update 1 (build 61)', folder: 'C:\Keil_v5\ARM\ARMCC\Bin'
+Build target 'mini_evol'
+compiling freertos.c...
+compiling lvgl_port.c...
+../Core/Src/app/lvgl_port.c(24): warning:  #188-D: enumerated type mixed with another type
+      g_lvgl_diag.root_bg565 = lv_color_to_u16(lv_obj_get_style_bg_color(root, 0));
+../Core/Src/app/lvgl_port.c(25): warning:  #188-D: enumerated type mixed with another type
+      g_lvgl_diag.root_bg_opa = lv_obj_get_style_bg_opa(root, 0);
+../Core/Src/app/lvgl_port.c(26): warning:  #188-D: enumerated type mixed with another type
+      g_lvgl_diag.root_opa = lv_obj_get_style_opa(root, 0);
+../Core/Src/app/lvgl_port.c(36): warning:  #550-D: variable "s_key_group" was set but never used
+  static lv_group_t *s_key_group;
+../Core/Src/app/lvgl_port.c(130): warning:  #177-D: function "lvgl_input_test_init" was declared but never referenced
+  static void lvgl_input_test_init(void)
+../Core/Src/app/lvgl_port.c: 5 warnings, 0 errors
+linking...
+Program Size: Code=256126 RO-data=44130 RW-data=436 ZI-data=64436  
+FromELF: creating hex file...
+"mini_evol\mini_evol.axf" - 0 Error(s), 5 Warning(s).
+Build Time Elapsed:  00:00:39

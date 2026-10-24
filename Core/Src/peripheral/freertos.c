@@ -160,5 +160,33 @@ void StartDefaultTask(void *argument)
 /* Private application code --------------------------------------------------*/
 /* USER CODE BEGIN Application */
 
+/* Stack overflow diagnostics, readable from the debugger after the halt.
+ * g_stack_overflow_task points to the task's static name string. */
+volatile uint32_t g_stack_overflow_count;
+const char * volatile g_stack_overflow_task;
+
+/**
+  * @brief  Called by FreeRTOS when configCHECK_FOR_STACK_OVERFLOW detects that
+  *         a task wrote into the last 20 bytes of its stack.
+  * @note   Do NOT call printf or any other stack-hungry function here: the
+  *         offending task's stack is already corrupted. Interrupts stay
+  *         disabled, so the scheduler stops and the debugger can inspect the
+  *         two globals above. The independent watchdog (IWDG, ~0.5 s) then
+  *         resets the MCU, which is the intended recovery for an unattended
+  *         device.
+  */
+void vApplicationStackOverflowHook(TaskHandle_t xTask, char *pcTaskName)
+{
+  (void)xTask;
+
+  g_stack_overflow_task = pcTaskName;
+  g_stack_overflow_count++;
+
+  taskDISABLE_INTERRUPTS();
+  for(;;)
+  {
+  }
+}
+
 /* USER CODE END Application */
 
