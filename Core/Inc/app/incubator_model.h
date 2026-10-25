@@ -2,12 +2,12 @@
 #define INCUBATOR_MODEL_H
 #include <stdint.h>
 
-/* Product policy. Temperature 0.0-60.0 C, incubation 0-24 h, delay 0-300 s. */
+/* Product policy. Temperature 0.0-60.0 C, incubation 0.1-99.9 min, delay 0-300 s. */
 #define APP_TEMP_MIN_CENTI 0
 #define APP_TEMP_MAX_CENTI 6000
 
-#define APP_TIME_MIN_S     60u      /* a run needs at least one minute */
-#define APP_TIME_MAX_S     86400u   /* 24 h */
+#define APP_TIME_MIN_S     6u
+#define APP_TIME_MAX_S     5994u
 #define APP_DELAY_MAX_S    300u
 
 #define APP_REQUIRE_CLOSED 1

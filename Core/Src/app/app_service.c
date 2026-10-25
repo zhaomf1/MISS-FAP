@@ -13,12 +13,14 @@ static app_snapshot_t s_app; /* Only app_service_task mutates this instance. */
 static uint32_t s_next_id, s_pending_id, s_write_started_ms;
 static int32_t s_requested_target;
 static uint8_t s_auto_write;
+static uint8_t s_boot_target_requested;
 
 __WEAK int app_board_buzzer_set(int enabled) { (void)enabled; return 0; }
 
 int app_service_init(void)
 {
     memset(&s_app, 0, sizeof(s_app));
+    s_boot_target_requested = 0;
     incubator_model_init(&s_app.run);
     s_published = s_app;
     s_commands = xQueueCreate(8, sizeof(app_command_t));
@@ -74,6 +76,7 @@ static void command(const app_command_t *c, uint32_t now, uint8_t *door_request)
         else if(c->value < APP_TEMP_MIN_CENTI || c->value > APP_TEMP_MAX_CENTI)
             s_app.message = APP_MSG_SET_TEMP;
         else if(!request_target(c->value, 0, now)) s_app.message = APP_MSG_BUSY;
+        else s_boot_target_requested = 1;
         break;
     case APP_SET_TIME:
         if(incubator_model_active(&s_app.run)) s_app.message = APP_MSG_SETTING_LOCKED;
@@ -176,6 +179,11 @@ void app_service_task(void *argument)
             command(&c, now, &door_request);
             if(!before && door_request) door_request_ms = now;
         }
+        if(!s_boot_target_requested && !s_app.target_pending &&
+           s_app.temp.online && s_app.temp.valid && !s_app.temp.alarm) {
+            if(request_target(s_app.run.target_centi, 0, now))
+                s_boot_target_requested = 1;
+        }
         if(door_request) {
             if(s_app.door == MOTOR_OPEN || s_app.door == MOTOR_CLOSED) {
                 motor_ret_t ret = door_request == 1 ? motor_open(MOTOR_SPEED_2) : motor_close(MOTOR_SPEED_2);
@@ -188,8 +196,9 @@ void app_service_task(void *argument)
         }
         /* Loss of temperature telemetry freezes the countdown; recovery
          * resumes it without charging the standby time to the incubation. */
-        incubator_model_set_paused(&s_app.run,
-            (!s_app.temp.online || s_app.temp.alarm) ? 1 : 0, now);
+        s_app.alarm = !s_app.temp.online || !s_app.temp.valid ||
+                      s_app.temp.alarm || s_app.door_fault || s_app.write_fault;
+        incubator_model_set_paused(&s_app.run, s_app.alarm, now);
         incubator_model_step(&s_app.run, now);
         if(s_app.run.cooling_request) {
             if(request_target(400, 1, now)) s_app.run.cooling_request = 0;
@@ -201,7 +210,6 @@ void app_service_task(void *argument)
         else if(diff > 50) at_temp = 0;  /* Exit at +/-0.5C; no status flicker. */
         s_app.at_temperature = at_temp;
         incubator_model_at_storage(&s_app.run, at_temp && s_app.temp.applied_centi == 400);
-        s_app.alarm = !s_app.temp.online || s_app.temp.alarm || s_app.door_fault || s_app.write_fault;
         if(previous_buzzer != s_app.run.buzzer) {
             s_app.buzzer_hardware = app_board_buzzer_set(s_app.run.buzzer) ? 1 : 0;
             previous_buzzer = s_app.run.buzzer;

@@ -41,14 +41,17 @@
 #define S_MUTE         "\xE6\xB6\x88\xE9\x9F\xB3"
 #define S_NOT_BUZZ     "\xE6\x9C\xAA\xE8\x9C\x82\xE9\xB8\xA3"
 #define S_SET_FMT      "\xE8\xAE\xBE\xE5\xAE\x9A %ld.%ld"
+#define S_COMM_ERROR   "\xE9\x80\x9A\xE8\xAE\xAF\xE5\xBC\x82\xE5\xB8\xB8"
+#define S_TEMP_ERROR   "\xE6\xB8\xA9\xE6\x8E\xA7\xE5\xBC\x82\xE5\xB8\xB8"
+#define S_LID_ERROR    "\xE5\xBC\x80\xE7\x9B\x96\xE5\xBC\x82\xE5\xB8\xB8"
+#define S_SET_TEMP_MSG "\xE8\xAE\xBE\xE5\xAE\x9A\xE6\xB8\xA9\xE5\xBA\xA6"
 
 /* Keep supplied bitmap data const; small descriptor copies add a Latin
  * fallback for spaces/punctuation absent from the supplied subset. */
-static lv_font_t s_font12, s_font14, s_font28, s_font32;
+static lv_font_t s_font12, s_font14, s_font28;
 #define F12 (&s_font12)
 #define F14 (&s_font14)
 #define F28 (&s_font28)
-#define F32 (&s_font32)
 
 #define BG       0x081B12
 #define HEADER   0x06140D
@@ -61,13 +64,13 @@ static lv_font_t s_font12, s_font14, s_font28, s_font32;
 #define ORANGE   0xFFA54A
 #define BLUE     0x5FC8FF
 
-/* Cell geometry: 24 + 80 + 72 + 64 = 240. */
+/* Cell geometry: 24 + 64 + 64 + 88 = 240. */
 #define TEMP_Y   24
-#define TEMP_H   80
-#define TIME_Y   104
-#define TIME_H   72
-#define DELAY_Y  176
-#define DELAY_H  64
+#define TEMP_H   64
+#define TIME_Y   88
+#define TIME_H   64
+#define DELAY_Y  152
+#define DELAY_H  88
 #define BAR_W    184
 
 /* UI owns handles/edit state only. No blocking serial transactions here. */
@@ -77,7 +80,7 @@ static lv_obj_t *s_alarm, *s_door, *s_phase, *s_sv;
 static lv_obj_t *s_kt[4], *s_kn[4];       /* key titles / notes */
 static lv_obj_t *s_ic_play[3], *s_ic_stop, *s_ic_door, *s_ic_mute[3];
 static lv_obj_t *s_ic_up[3], *s_ic_down[3], *s_ic_dot;
-static lv_obj_t *s_time_bar, *s_delay_bar;
+static lv_obj_t *s_temp_bar, *s_time_bar, *s_delay_bar;
 static lv_obj_t *s_focus, *s_digit;
 static uint8_t s_ok, s_focus_index, s_edit, s_digit_index, s_focus_shown;
 static int32_t s_draft;
@@ -233,7 +236,6 @@ void ui_layout_init(void)
     s_font12 = lv_font_ui_font_12; s_font12.fallback = &lv_font_montserrat_14;
     s_font14 = lv_font_ui_font_14; s_font14.fallback = &lv_font_montserrat_14;
     s_font28 = lv_font_ui_font_28; s_font28.fallback = &lv_font_montserrat_20;
-    s_font32 = lv_font_ui_font_32; s_font32.fallback = &lv_font_montserrat_20;
     s_ok = 1; s_focus_index = 0; s_edit = 0; s_digit_index = 0; s_focus_shown = 0;
     lv_obj_clean(s); lv_obj_remove_style_all(s);
     lv_obj_set_size(s, 320, 240);
@@ -252,10 +254,12 @@ void ui_layout_init(void)
     rect(s, 201, 96, 59, 72, BG, 1);
     rect(s, 260, 96, 60, 72, 0x10251A, 1);
 
-    rect(s, 8, TIME_Y + 67, BAR_W, 4, 0x263C2F, 0);
-    s_time_bar = rect(s, 8, TIME_Y + 67, 0, 4, GREEN, 0);
-    rect(s, 8, DELAY_Y + 60, BAR_W, 3, 0x263C2F, 0);
-    s_delay_bar = rect(s, 8, DELAY_Y + 60, 0, 3, YELLOW, 0);
+    rect(s, 8, TEMP_Y + 62, BAR_W, 2, 0x263C2F, 0);
+    s_temp_bar = rect(s, 8, TEMP_Y + 62, 0, 2, GREEN, 0);
+    rect(s, 8, TIME_Y + 59, BAR_W, 4, 0x263C2F, 0);
+    s_time_bar = rect(s, 8, TIME_Y + 59, 0, 4, GREEN, 0);
+    rect(s, 8, DELAY_Y + 84, BAR_W, 3, 0x263C2F, 0);
+    s_delay_bar = rect(s, 8, DELAY_Y + 84, 0, 3, YELLOW, 0);
 
     /* Header phase icons (pixel triangles / dot). */
     s_ic_up[0] = rect(s, 107, 7, 2, 2, GREEN, 0);
@@ -280,7 +284,7 @@ void ui_layout_init(void)
     s_focus = rect(s, 2, TEMP_Y + 2, 196, TEMP_H - 4, BG, 1);
     if(!s_ok) return;
     lv_obj_set_style_bg_opa(s_focus, LV_OPA_TRANSP, 0);
-    s_digit = rect(s, 8, 80, 12, 2, YELLOW, 0);
+    s_digit = rect(s, 8, 72, 12, 2, YELLOW, 0);
     if(!s_ok) return;
     lv_obj_add_flag(s_digit, LV_OBJ_FLAG_HIDDEN);
 
@@ -291,22 +295,22 @@ void ui_layout_init(void)
     s_sv = text(s, "", 188, 4, 126, 16, F12, MUTED, LV_TEXT_ALIGN_RIGHT);
 
     /* Temperature cell. */
-    text(s, S_TEMP_TITLE, 8, 27, 184, 18, F14, MUTED, LV_TEXT_ALIGN_LEFT);
-    s_pv = text(s, "--.-", 8, 44, 106, 40, F32, GREEN, LV_TEXT_ALIGN_LEFT);
-    text(s, "\xE2\x84\x83", 118, 58, 24, 16, F12, MUTED, LV_TEXT_ALIGN_LEFT);
-    s_target = text(s, "", 8, 84, 184, 16, F12, MUTED, LV_TEXT_ALIGN_LEFT);
+    text(s, S_TEMP_TITLE, 8, 26, 184, 14, F12, MUTED, LV_TEXT_ALIGN_LEFT);
+    s_pv = text(s, "--.-", 8, 40, 106, 32, F28, GREEN, LV_TEXT_ALIGN_LEFT);
+    text(s, "\xE2\x84\x83", 118, 52, 24, 16, F12, MUTED, LV_TEXT_ALIGN_LEFT);
+    s_target = text(s, "", 8, 72, 184, 14, F12, MUTED, LV_TEXT_ALIGN_LEFT);
 
     /* Time cell. */
-    text(s, S_TIME_TITLE, 8, 105, 184, 18, F14, MUTED, LV_TEXT_ALIGN_LEFT);
-    s_time = text(s, "00:00", 8, 119, 170, 40, F32, 0xD2ECDD, LV_TEXT_ALIGN_LEFT);
-    s_time_aux = text(s, S_WAIT, 8, 157, 184, 14, F12, MUTED, LV_TEXT_ALIGN_LEFT);
+    text(s, S_TIME_TITLE, 8, 89, 184, 14, F12, MUTED, LV_TEXT_ALIGN_LEFT);
+    s_time = text(s, "15.0 min", 8, 103, 184, 31, F28, 0xD2ECDD, LV_TEXT_ALIGN_LEFT);
+    s_time_aux = text(s, S_WAIT, 8, 134, 184, 14, F12, MUTED, LV_TEXT_ALIGN_LEFT);
 
     /* Delay cell. */
-    text(s, S_DELAY_TITLE, 8, 177, 124, 14, F12, MUTED, LV_TEXT_ALIGN_LEFT);
-    s_delay_set = text(s, "", 140, 177, 52, 14, F12, MUTED, LV_TEXT_ALIGN_RIGHT);
-    s_delay = text(s, "0", 8, 188, 60, 34, F28, YELLOW, LV_TEXT_ALIGN_LEFT);
-    text(s, "s", 52, 203, 14, 14, F12, MUTED, LV_TEXT_ALIGN_LEFT);
-    s_delay_state = text(s, S_EDITABLE, 8, 222, 184, 13, F12, MUTED, LV_TEXT_ALIGN_LEFT);
+    text(s, S_DELAY_TITLE, 8, 153, 124, 14, F12, MUTED, LV_TEXT_ALIGN_LEFT);
+    s_delay_set = text(s, "", 140, 153, 52, 14, F12, MUTED, LV_TEXT_ALIGN_RIGHT);
+    s_delay = text(s, "0", 8, 170, 60, 34, F28, YELLOW, LV_TEXT_ALIGN_LEFT);
+    text(s, "s", 74, 185, 14, 14, F12, MUTED, LV_TEXT_ALIGN_LEFT);
+    s_delay_state = text(s, S_EDITABLE, 8, 207, 184, 14, F12, MUTED, LV_TEXT_ALIGN_LEFT);
 
     /* Four action keys: start, stop, lid, mute. */
     for(i = 0; i < 4; ++i) {
@@ -360,12 +364,12 @@ void ui_layout_key(uint32_t key)
                                       s_focus_index == 1 ? APP_SET_TIME : APP_SET_DELAY;
             if(app_service_submit(kind, s_draft)) s_edit = 0;
         } else if(key == KEY_LEFT || key == KEY_RIGHT) {
-            uint8_t digits = s_focus_index == 0 ? 3 : s_focus_index == 1 ? 4 : 3;
+            uint8_t digits = 3;
             s_digit_index = (uint8_t)((s_digit_index + digits +
                              (key == KEY_RIGHT ? 1 : digits - 1)) % digits);
         } else if(key == KEY_UP || key == KEY_DOWN) {
             static const int32_t temp_steps[3] = {1000, 100, 10};
-            static const int32_t time_steps[4] = {36000, 3600, 600, 60};
+            static const int32_t time_steps[3] = {600, 60, 6};
             static const int32_t delay_steps[3] = {100, 10, 1};
             int32_t step, lo, hi;
             if(s_focus_index == 0) { step = temp_steps[s_digit_index]; lo = APP_TEMP_MIN_CENTI; hi = APP_TEMP_MAX_CENTI; }
@@ -378,7 +382,7 @@ void ui_layout_key(uint32_t key)
     } else if(key == KEY_OK) {
         if(s_focus_index < 3) {
             s_edit = 1;
-            s_digit_index = s_focus_index == 0 ? 2 : s_focus_index == 1 ? 3 : 2;
+            s_digit_index = 2;
             s_draft = s_focus_index == 0 ? s_view.run.target_centi :
                       s_focus_index == 1 ? (int32_t)s_view.run.time_s :
                                            s_view.run.delay_s;
@@ -462,7 +466,20 @@ void ui_layout_process(void)
                  (long)(abs_t / 10), (long)(abs_t % 10));
     } else strcpy(number, "--.-");
     value(s_pv, number);
+    tint(s_pv, !s_view.temp.valid ? RED :
+         (ph == INC_COOL_REQUEST || ph == INC_COOLING) &&
+         !s_view.at_temperature ? ORANGE : GREEN);
     tint(s_alarm, s_view.alarm ? RED : MUTED);
+    width = 0;
+    if((ph == INC_COOL_REQUEST || ph == INC_COOLING || ph == INC_STORAGE) &&
+       s_view.temp.valid && s_view.run.target_centi > 400) {
+        int32_t done = s_view.run.target_centi - s_view.temp.pv_centi;
+        int32_t span = s_view.run.target_centi - 400;
+        if(done < 0) done = 0;
+        if(done > span) done = span;
+        width = (uint32_t)((int64_t)done * BAR_W / span);
+    }
+    bar(NULL, s_temp_bar, width, GREEN);
 
     /* Lid. */
     switch(s_view.door) {
@@ -476,7 +493,11 @@ void ui_layout_process(void)
     tint(s_door, s_view.door_fault ? RED : GREEN);
 
     /* Phase. */
-    if(s_view.run.paused) { phase_txt = S_ALARM; phase_col = RED; }
+    if(s_view.alarm) {
+        phase_txt = (!s_view.temp.online || !s_view.temp.valid) ? S_COMM_ERROR :
+                    (s_view.temp.alarm || s_view.write_fault) ? S_TEMP_ERROR : S_LID_ERROR;
+        phase_col = RED;
+    }
     else if(s_view.run.buzzer) { phase_txt = S_BUZZ; phase_col = ORANGE; }
     else switch(ph) {
     case INC_RUNNING:
@@ -512,15 +533,18 @@ void ui_layout_process(void)
     total = s_view.run.time_s;
     remain = (s_view.run.remaining_ms + 999u) / 1000u;
     if(s_edit && s_focus_index == 1) {
-        snprintf(number, sizeof(number), "%02lu:%02lu",
-                 (unsigned long)(s_draft / 3600), (unsigned long)((s_draft % 3600) / 60));
+        snprintf(number, sizeof(number), "%02lu.%lu min",
+                 (unsigned long)(s_draft / 60), (unsigned long)((s_draft % 60) / 6));
+    } else if(s_view.alarm) {
+        strcpy(number, "--:--");
     } else if(ph == INC_RUNNING) {
-        if(s_view.run.paused) strcpy(number, "--:--");
-        else clock_text(number, sizeof(number), remain);
+        clock_text(number, sizeof(number), remain);
     } else if(ph == INC_IDLE) {
-        clock_text(number, sizeof(number), total);
+        snprintf(number, sizeof(number), "%02lu.%lu min",
+                 (unsigned long)(total / 60), (unsigned long)((total % 60) / 6));
     } else strcpy(number, "00:00");
     value(s_time, number);
+    tint(s_time, s_view.alarm ? RED : ph == INC_RUNNING ? ORANGE : 0xD2ECDD);
 
     if(ph == INC_RUNNING) {
         if(s_view.run.paused) value(s_time_aux, S_PAUSED);
@@ -563,11 +587,24 @@ void ui_layout_process(void)
 
     if(s_edit && s_focus_index == 2)
         snprintf(b, sizeof(b), "%lu s", (unsigned long)s_draft);
+    else if(ph == INC_DELAY && s_view.run.delay_s)
+        snprintf(b, sizeof(b), "%lu/%u",
+                 (unsigned long)((s_view.run.delay_remaining_ms + 999u) / 1000u),
+                 s_view.run.delay_s);
     else if(s_view.run.delay_s) snprintf(b, sizeof(b), "%u s", s_view.run.delay_s);
     else strcpy(b, "N");
     value(s_delay_set, b);
 
-    if(s_edit && s_focus_index == 2) {
+    if(s_view.message != APP_MSG_NONE) {
+        const char *msg = s_view.message == APP_MSG_BUSY ? "BUSY" :
+                          s_view.message == APP_MSG_SET_TEMP ? S_SET_TEMP_MSG :
+                          s_view.message == APP_MSG_CLOSE_LID ? S_CLOSE :
+                          s_view.message == APP_MSG_TEMP_OFFLINE ? S_COMM_ERROR :
+                          s_view.message == APP_MSG_DOOR_FAILED ? S_LID_ERROR :
+                          s_view.message == APP_MSG_SETTING_LOCKED ? S_STARTING : S_TEMP_ERROR;
+        value(s_delay_state, msg);
+        tint(s_delay_state, RED);
+    } else if(s_edit && s_focus_index == 2) {
         value(s_delay_state, S_EDITABLE);
         tint(s_delay_state, YELLOW);
     } else if(ph == INC_DELAY) {
@@ -658,22 +695,23 @@ void ui_layout_process(void)
     /* Editing cursor. */
     if(s_edit) {
         char cursor[24];
-        const lv_font_t *cf = F32;
+        const lv_font_t *cf = F28;
         uint8_t ci = s_digit_index;   /* index of the glyph inside cursor[] */
         int x, y;
         lv_font_glyph_dsc_t d;
         if(s_focus_index == 0) {
             snprintf(cursor, sizeof(cursor), "%02ld.%ld", (long)(s_draft / 100), (long)((s_draft % 100) / 10));
-            y = 80;
+            if(ci == 2) ++ci;       /* decimal point is not an editable digit */
+            y = 70;
         } else if(s_focus_index == 1) {
-            snprintf(cursor, sizeof(cursor), "%02lu:%02lu", (unsigned long)(s_draft / 3600),
-                     (unsigned long)((s_draft % 3600) / 60));
-            if(ci > 1) ++ci;          /* skip the ':' between HH and MM */
-            y = 156;
+            snprintf(cursor, sizeof(cursor), "%02lu.%lu", (unsigned long)(s_draft / 60),
+                     (unsigned long)((s_draft % 60) / 6));
+            if(ci == 2) ++ci;
+            y = 132;
         } else {
             snprintf(cursor, sizeof(cursor), "%03lu", (unsigned long)s_draft);
             cf = F28;
-            y = 216;
+            y = 204;
         }
         x = digit_x(cf, cursor, ci);
         if(lv_font_get_glyph_dsc(cf, &d, cursor[ci], cursor[ci + 1]))
