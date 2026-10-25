@@ -52,6 +52,16 @@ static int request_target(int32_t target, int automatic, uint32_t now)
     return 1;
 }
 
+/* Cancel the run and put the module back on the incubation setpoint so the
+ * next setup screen regulates at the configured temperature again. */
+static void stop_and_restore(uint32_t now)
+{
+    incubator_model_stop(&s_app.run);
+    if(!s_app.target_pending && s_app.temp.online && s_app.temp.valid &&
+       s_app.temp.applied_centi != s_app.run.target_centi)
+        request_target(s_app.run.target_centi, 0, now);
+}
+
 static void command(const app_command_t *c, uint32_t now, uint8_t *door_request)
 {
     s_app.message = APP_MSG_NONE;
@@ -66,12 +76,28 @@ static void command(const app_command_t *c, uint32_t now, uint8_t *door_request)
         else if(!request_target(c->value, 0, now)) s_app.message = APP_MSG_BUSY;
         break;
     case APP_SET_TIME:
-    case APP_SET_DELAY:
         if(incubator_model_active(&s_app.run)) s_app.message = APP_MSG_SETTING_LOCKED;
-        else if(c->kind == APP_SET_TIME && c->value >= APP_TIME_MIN_TENTHS && c->value <= APP_TIME_MAX_TENTHS)
-            s_app.run.time_tenths_min = (uint16_t)c->value;
-        else if(c->kind == APP_SET_DELAY && c->value >= 0 && c->value <= APP_DELAY_MAX_S)
+        else if(c->value >= 0 && c->value <= (int32_t)APP_TIME_MAX_S)
+            s_app.run.time_s = (uint32_t)c->value;
+        break;
+    case APP_SET_DELAY:
+        if(c->value < 0 || c->value > (int32_t)APP_DELAY_MAX_S) break;
+        if(s_app.run.phase == INC_RUNNING) {
+            /* The delay has not started yet, so it may still be changed while
+             * the incubation countdown runs. */
             s_app.run.delay_s = (uint16_t)c->value;
+            s_app.run.run_delay_ms = (uint32_t)c->value * 1000u;
+            s_app.run.delay_remaining_ms = s_app.run.run_delay_ms;
+        } else if(incubator_model_active(&s_app.run)) {
+            s_app.message = APP_MSG_SETTING_LOCKED;
+        } else {
+            s_app.run.delay_s = (uint16_t)c->value;
+        }
+        break;
+    case APP_STOP:
+        if(incubator_model_active(&s_app.run) || s_app.run.phase == INC_FINISHED ||
+           s_app.run.phase == INC_ERROR)
+            stop_and_restore(now);
         break;
     case APP_START:
         if(s_app.target_pending || *door_request || motor_command_pending() || incubator_model_active(&s_app.run))
@@ -110,19 +136,30 @@ void app_service_task(void *argument)
     uint8_t door_request = 0, previous_buzzer = 2;
     uint32_t door_request_ms = 0;
     uint8_t at_temp = 0;
+    motor_state_t previous_door = MOTOR_UNINIT;
     (void)argument;
     for(;;) {
         uint32_t now = HAL_GetTick();
         int32_t diff;
         temp_service_snapshot(&s_app.temp);
         s_app.door = motor_get_state();
+        /* Taking the plate out ends the storage phase. */
+        if(s_app.door == MOTOR_OPEN && previous_door != MOTOR_OPEN &&
+           (s_app.run.phase == INC_STORAGE || s_app.run.phase == INC_FINISHED))
+            stop_and_restore(now);
+        previous_door = s_app.door;
         s_app.door_fault = s_app.door == MOTOR_FAULT ||
             ((s_app.door == MOTOR_OPEN || s_app.door == MOTOR_CLOSED) && motor_feedback_age_ms() > 2500u);
         if(s_app.target_pending && s_app.temp.completed_id == s_pending_id) {
             s_app.target_pending = 0;
             s_app.write_fault = !s_app.temp.write_ok;
-            if(s_auto_write) incubator_model_cooling_result(&s_app.run, s_app.temp.write_ok);
-            else if(s_app.temp.write_ok) {
+            if(s_auto_write) {
+                incubator_model_cooling_result(&s_app.run, s_app.temp.write_ok);
+                /* STOP pressed while the cooling setpoint was in flight: the
+                 * module now holds 4 C, so put the incubation setpoint back. */
+                if(s_app.temp.write_ok && s_app.run.phase == INC_IDLE)
+                    request_target(s_app.run.target_centi, 0, now);
+            } else if(s_app.temp.write_ok) {
                 s_app.run.target_centi = s_requested_target;
                 s_app.run.phase = INC_IDLE;
             }
@@ -149,6 +186,10 @@ void app_service_task(void *argument)
                 s_app.message = APP_MSG_DOOR_FAILED;
             }
         }
+        /* Loss of temperature telemetry freezes the countdown; recovery
+         * resumes it without charging the standby time to the incubation. */
+        incubator_model_set_paused(&s_app.run,
+            (!s_app.temp.online || s_app.temp.alarm) ? 1 : 0, now);
         incubator_model_step(&s_app.run, now);
         if(s_app.run.cooling_request) {
             if(request_target(400, 1, now)) s_app.run.cooling_request = 0;

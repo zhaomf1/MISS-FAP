@@ -5,7 +5,7 @@ void incubator_model_init(incubator_model_t *m)
 {
     memset(m, 0, sizeof(*m));
     m->target_centi = 3700;
-    m->time_tenths_min = 150;
+    m->time_s = 15u * 60u;
     m->delay_s = 60;
     m->phase = INC_IDLE;
 }
@@ -17,16 +17,26 @@ int incubator_model_active(const incubator_model_t *m)
            m->phase == INC_STORAGE;
 }
 
+static uint32_t elapsed_ms(const incubator_model_t *m, uint32_t now_ms)
+{
+    uint32_t elapsed = now_ms - m->run_start_ms - m->paused_total_ms;
+    if(m->paused) elapsed -= now_ms - m->pause_start_ms;
+    return elapsed;
+}
+
 int incubator_model_start(incubator_model_t *m, uint32_t now_ms)
 {
-    if(incubator_model_active(m) || m->time_tenths_min < APP_TIME_MIN_TENTHS ||
-       m->time_tenths_min > APP_TIME_MAX_TENTHS) return 0;
+    if(incubator_model_active(m) || m->time_s < APP_TIME_MIN_S ||
+       m->time_s > APP_TIME_MAX_S) return 0;
     /* A run owns a snapshot: later setting changes cannot alter its deadlines. */
     m->run_start_ms = now_ms;
-    m->run_duration_ms = (uint32_t)m->time_tenths_min * 6000u;
+    m->run_duration_ms = m->time_s * 1000u;
     m->run_delay_ms = (uint32_t)m->delay_s * 1000u;
     m->remaining_ms = m->run_duration_ms;
     m->delay_remaining_ms = m->run_delay_ms;
+    m->paused_total_ms = 0;
+    m->pause_start_ms = 0;
+    m->paused = 0;
     m->buzzer = m->cooling_request = 0;
     m->phase = INC_RUNNING;
     return 1;
@@ -34,7 +44,9 @@ int incubator_model_start(incubator_model_t *m, uint32_t now_ms)
 
 void incubator_model_step(incubator_model_t *m, uint32_t now_ms)
 {
-    uint32_t elapsed = now_ms - m->run_start_ms; /* Wrap-safe for bounded runs. */
+    uint32_t elapsed;
+    if(m->paused) return;            /* Frozen: no deadline may move. */
+    elapsed = elapsed_ms(m, now_ms);
     if(m->phase == INC_RUNNING) {
         m->remaining_ms = elapsed < m->run_duration_ms ? m->run_duration_ms - elapsed : 0;
         if(m->remaining_ms == 0) {
@@ -53,6 +65,30 @@ void incubator_model_step(incubator_model_t *m, uint32_t now_ms)
 }
 
 void incubator_model_mute(incubator_model_t *m) { m->buzzer = 0; }
+
+void incubator_model_set_paused(incubator_model_t *m, int paused, uint32_t now_ms)
+{
+    if(m->phase != INC_RUNNING && m->phase != INC_DELAY) return;
+    if(paused && !m->paused) {
+        m->paused = 1;
+        m->pause_start_ms = now_ms;
+    } else if(!paused && m->paused) {
+        m->paused_total_ms += now_ms - m->pause_start_ms;
+        m->paused = 0;
+    }
+}
+
+void incubator_model_stop(incubator_model_t *m)
+{
+    m->phase = INC_IDLE;
+    m->buzzer = 0;
+    m->cooling_request = 0;
+    m->remaining_ms = 0;
+    m->delay_remaining_ms = 0;
+    m->paused = 0;
+    m->paused_total_ms = 0;
+    m->pause_start_ms = 0;
+}
 
 void incubator_model_cooling_result(incubator_model_t *m, int success)
 {

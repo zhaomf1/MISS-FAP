@@ -5,7 +5,7 @@
 #include "motor.h"
 
 typedef enum {
-    APP_SET_TEMP, APP_SET_TIME, APP_SET_DELAY, APP_START,
+    APP_SET_TEMP, APP_SET_TIME, APP_SET_DELAY, APP_START, APP_STOP,
     APP_MUTE, APP_OPEN, APP_CLOSE
 } app_command_kind_t;
 typedef struct { app_command_kind_t kind; int32_t value; } app_command_t;
