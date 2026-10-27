@@ -16,7 +16,7 @@
   ******************************************************************************
   */
 
-/* Includes ------------------------------------------------------------------*/
+/* 包含文件 ------------------------------------------------------------------*/
 #include "motor.h"
 #include <stdio.h>
 #include "cmsis_os.h"
@@ -25,7 +25,7 @@
 #include "task.h"
 #include "queue.h"
 
-/* Private defines -----------------------------------------------------------*/
+/* 私有宏定义 ----------------------------------------------------------------*/
 
 /* 指令输出脚 */
 #define MOTOR_CMD_PORT           GPIOD
@@ -66,7 +66,7 @@ typedef struct {
   uint8_t     speed;   /* 1~3 档 */
 } motor_cmd_t;
 
-/* Private variables ---------------------------------------------------------*/
+/* 私有变量 ------------------------------------------------------------------*/
 
 static QueueHandle_t     s_cmd_q;      /* motor_cmd_t, 深度1: 忙时直接拒收 */
 static QueueHandle_t     s_fb_q;       /* uint32_t 低脉宽(us), ISR->task */
@@ -81,7 +81,7 @@ static volatile TickType_t   s_move_start = 0;   /* 本次动作发起时刻 */
 static volatile uint32_t    s_cap_fall = 0;      /* ISR: 最近下降沿(低脉冲开始) */
 static volatile uint8_t     s_power_on = 0;
 
-/* Private function prototypes ------------------------------------------------*/
+/* 私有函数声明 --------------------------------------------------------------*/
 static void motor_hw_init(void);
 static void motor_do_install(void);
 static void motor_act_open(uint8_t speed);

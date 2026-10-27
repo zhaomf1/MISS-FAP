@@ -109,9 +109,9 @@ motor_ret_t motor_close(motor_speed_t speed);       /* 下翻关盖, 到位自�
 void motor_power_set(int on);                      /* 电机12V电源开关 */
 int  motor_power_get(void);
 motor_state_t motor_get_state(void);                /* 查询状态 */
-/* UINT32_MAX until the first valid position heartbeat; idle link monitoring. */
+/* 首次收到有效位置心跳前返回 UINT32_MAX，用于监测空闲链路。 */
 uint32_t motor_feedback_age_ms(void);
-/* Includes the command pulse window before OPENING/CLOSING becomes visible. */
+/* 包含指令脉冲窗口，因此比 OPENING/CLOSING 状态出现稍早。 */
 int motor_command_pending(void);
 const char   *motor_state_str(motor_state_t s);
 

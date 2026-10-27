@@ -9,7 +9,7 @@
 - ui_layout.c：唯一活动界面、控件句柄、导航、编辑草稿、按键重复和状态显示。只在 uiTask 调用 LVGL。
 - motor.c：保留现有脉冲控制协议，新增位置心跳时间查询。
 
-旧 ui_utf8.c 已移出 Keil 编译列表，不接入其按键处理。工程仅编译新的合并字体 lv_font_ui_font.c。
+旧版 ui.c、ui_ascii.c 和 ui_utf8.c 示例已清理；当前界面只由 ui_layout.c 实现，工程使用合并字库 lv_font_ui_font.c。
 
 ## 操作
 

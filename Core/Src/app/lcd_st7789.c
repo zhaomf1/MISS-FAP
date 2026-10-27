@@ -14,7 +14,7 @@
 #include "spi.h"      /* hspi1 */
 #include "cmsis_os.h"
 
-/* Private defines -----------------------------------------------------------*/
+/* 私有宏定义 ----------------------------------------------------------------*/
 #define LCD_CS_PORT    GPIOA
 #define LCD_CS_PIN     GPIO_PIN_4
 #define LCD_DC_PORT    GPIOD
@@ -27,10 +27,10 @@
 /* SPI 参数: 模式0(已在MX_SPI1_Init配好), 42MHz, 8bit, MSB first */
 #define LCD_SPI_TIMEOUT_MS  100
 
-/* Private variables ---------------------------------------------------------*/
+/* 私有变量 ------------------------------------------------------------------*/
 static int s_inited = 0;
 
-/* Private functions ---------------------------------------------------------*/
+/* 私有函数 ------------------------------------------------------------------*/
 
 static void lcd_cs(int sel)   { HAL_GPIO_WritePin(LCD_CS_PORT, LCD_CS_PIN, sel ? GPIO_PIN_RESET : GPIO_PIN_SET); }
 static void lcd_dc(int data)  { HAL_GPIO_WritePin(LCD_DC_PORT, LCD_DC_PIN, data ? GPIO_PIN_SET : GPIO_PIN_RESET); }

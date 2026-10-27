@@ -53,4 +53,5 @@ mini_evol\temp_service.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/tas
 mini_evol\temp_service.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/list.h
 mini_evol\temp_service.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/queue.h
 mini_evol\temp_service.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/semphr.h
+mini_evol\temp_service.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\stdio.h
 mini_evol\temp_service.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\string.h

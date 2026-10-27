@@ -8,15 +8,19 @@
 #include "task.h"
 #include <stdio.h>
 
+/*
+ * LVGL 移植模块：连接系统时基、按键事件、应用页面和 ST7789 刷屏。
+ * 同时维护调试快照，便于定位内存、刷新区域和页面创建问题。
+ */
+
 #define LVGL_BUF_LINES 8
 
-/* 1 = paint the panel red for 200 ms before LVGL starts.
- * Black still => LCD/SPI/backlight fault. Red then black => LVGL/UI fault.
- * Set to 0 once the display path is confirmed. */
+/* 1 = LVGL 启动前整屏点亮红色 200ms。
+ * 始终黑屏表示 LCD/SPI/背光异常；先红后黑表示 LVGL/UI 异常。
+ * 确认显示链路正常后可设为 0。 */
 #define LCD_BOOT_SELFTEST 0
 
-/* Must match the number of children created by ui_layout_init(). A smaller
- * count means lv_obj_create() ran out of LVGL heap. */
+/* 必须与 ui_layout_init() 创建的子对象数量一致；数量偏小通常表示 LVGL 堆不足。 */
 #define UI_EXPECTED_CHILDREN 39
 
 #define UI_FAULT_NO_DISPLAY      1
@@ -79,8 +83,7 @@ static void lvgl_flush_cb(lv_display_t *display,
     lv_display_flush_ready(display);
 }
 
-/* Turn the whole panel red and record why. The direct LCD fill runs before the
- * LVGL path so the red is visible even when LVGL itself is what failed. */
+/* 整屏填红并记录故障原因；直接 LCD 填充先于 LVGL 执行，确保 LVGL 自身故障时仍可见红屏。 */
 static void ui_fault_screen(uint32_t code)
 {
     lv_obj_t *root = lv_screen_active();
@@ -175,7 +178,7 @@ void lvgl_port_init(void)
     }
 
     g_lvgl_diag.stage = 5;
-    lv_refr_now(s_display);   /* paint now instead of waiting for the refresh timer */
+    lv_refr_now(s_display);   /* 立即刷新，不等待 LVGL 的刷新定时器。 */
 }
 
 void lvgl_port_tick_inc(uint32_t elapsed_ms)

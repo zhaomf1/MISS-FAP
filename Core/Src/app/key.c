@@ -3,6 +3,11 @@
 #include "queue.h"
 #include <stdio.h>
 
+/*
+ * 按键服务模块：周期采样 GPIO，进行消抖，并把按下/释放事件放入队列。
+ * 界面层只读取事件，不直接操作按键 GPIO。
+ */
+
 #define KEY_ACTIVE_LOW       1
 #define KEY_SAMPLE_MS        10
 #define KEY_DEBOUNCE_COUNT   2
@@ -40,6 +45,7 @@ static const char *key_name(key_id_t key)
 }
 #endif
 
+/* 配置五个按键 GPIO 为输入，并清空软件消抖状态。 */
 static void key_gpio_init(void)
 {
     GPIO_InitTypeDef init = {0};
@@ -69,6 +75,7 @@ static void key_push_event(key_id_t id, key_event_type_t type)
     }
 }
 
+/* 按固定周期采样按键并生成按下/释放事件。 */
 void key_task(void *argument)
 {
     uint32_t i;
@@ -105,12 +112,14 @@ void key_task(void *argument)
     }
 }
 
+/* 非阻塞取出一个按键事件；队列为空时返回 0。 */
 int key_get_event(key_event_t *event)
 {
     if (event == NULL || s_key_queue == NULL) return 0;
     return xQueueReceive(s_key_queue, event, 0) == pdPASS ? 1 : 0;
 }
 
+/* 返回某个按键经过消抖后的稳定电平。 */
 int key_is_pressed(key_id_t key)
 {
     if ((unsigned)key >= KEY_COUNT) return 0;

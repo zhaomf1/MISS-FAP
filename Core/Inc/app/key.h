@@ -1,6 +1,10 @@
 #ifndef APP_KEY_H
 #define APP_KEY_H
 
+/** @file key.h
+ *  @brief 五个按键扫描、消抖和事件队列接口。
+ */
+
 #include "main.h"
 #include "cmsis_os.h"
 
@@ -23,13 +27,13 @@ typedef struct {
     key_event_type_t type;
 } key_event_t;
 
-/* 按键扫描线程：10 ms采样，约20 ms消抖。 */
+/** @brief 按键扫描任务，每 10ms 采样，约 20ms 消抖。 */
 void key_task(void *argument);
 
-/* 非阻塞读取按键事件；返回1表示读到事件，返回0表示队列为空。 */
+/** @brief 非阻塞读取一个按键事件。 */
 int key_get_event(key_event_t *event);
 
-/* 读取当前稳定状态：1=按下，0=释放。 */
+/** @brief 读取消抖后的稳定状态：1 表示按下，0 表示释放。 */
 int key_is_pressed(key_id_t key);
 
 #endif
