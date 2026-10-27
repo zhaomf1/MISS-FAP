@@ -53,6 +53,7 @@ extern "C" {
                                               心跳是持续广播, 校准期间趴在关位的
                                               7.5心跳不代表校准完成              */
 #define MOTOR_MOVE_TIMEOUT_MS        20000  /* 开/关动作整体完成时限               */
+#define MOTOR_CLOSE_CONFIRM_MIN_MS     300  /* 补发关盖脉冲后，忽略短暂的旧关闭反馈 */
 #define MOTOR_FB_FIRST_TIMEOUT_MS    2000   /* 指令后旧位置心跳持续超此时长 =
                                               电机没理会指令(忙窗口), 报FAULT      */
 

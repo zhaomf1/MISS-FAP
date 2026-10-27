@@ -3,7 +3,7 @@
 <title>Static Call Graph - [mini_evol\mini_evol.axf]</title></head>
 <body><HR>
 <H1>Static Call Graph for image mini_evol\mini_evol.axf</H1><HR>
-<BR><P>#&#060CALLGRAPH&#062# ARM Linker, 5060061: Last Updated: Tue Oct 27 16:09:43 2026
+<BR><P>#&#060CALLGRAPH&#062# ARM Linker, 5060061: Last Updated: Tue Oct 27 18:18:41 2026
 <BR><P>
 <H3>Maximum Stack Usage =       1904 bytes + Unknown(Cycles, Untraceable Function Pointers)</H3><H3>
 Call chain for Maximum Stack Depth:</H3>
@@ -1730,7 +1730,7 @@ Global Symbols
 </UL>
 <BR>[Address Reference Count : 1]<UL><LI> startup_stm32f405xx.o(RESET)
 </UL>
-<P><STRONG><a name="[61]"></a>MotorTask</STRONG> (Thumb, 346 bytes, Stack size 16 bytes, motor.o(i.MotorTask))
+<P><STRONG><a name="[61]"></a>MotorTask</STRONG> (Thumb, 370 bytes, Stack size 16 bytes, motor.o(i.MotorTask))
 <BR><BR>[Stack]<UL><LI>Max Depth = 144<LI>Call Chain = MotorTask &rArr; motor_init &rArr; xQueueGenericSend &rArr; xTaskResumeAll &rArr; xTaskIncrementTick
 </UL>
 <BR>[Calls]<UL><LI><a href="#[1cc]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;xTaskGetTickCount
@@ -2002,7 +2002,7 @@ Global Symbols
 <BR><BR>[Called By]<UL><LI><a href="#[63]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;app_service_task
 </UL>
 
-<P><STRONG><a name="[1b2]"></a>app_service_init</STRONG> (Thumb, 68 bytes, Stack size 8 bytes, app_service.o(i.app_service_init))
+<P><STRONG><a name="[1b2]"></a>app_service_init</STRONG> (Thumb, 64 bytes, Stack size 8 bytes, app_service.o(i.app_service_init))
 <BR><BR>[Stack]<UL><LI>Max Depth = 128<LI>Call Chain = app_service_init &rArr; xQueueCreateMutex &rArr; prvInitialiseMutex &rArr; xQueueGenericSend &rArr; xTaskResumeAll &rArr; xTaskIncrementTick
 </UL>
 <BR>[Calls]<UL><LI><a href="#[1c4]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;xQueueGenericCreate
@@ -2036,7 +2036,7 @@ Global Symbols
 <LI><a href="#[829]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;route_edit_key
 </UL>
 
-<P><STRONG><a name="[63]"></a>app_service_task</STRONG> (Thumb, 688 bytes, Stack size 24 bytes, app_service.o(i.app_service_task))
+<P><STRONG><a name="[63]"></a>app_service_task</STRONG> (Thumb, 654 bytes, Stack size 24 bytes, app_service.o(i.app_service_task))
 <BR><BR>[Stack]<UL><LI>Max Depth = 256<LI>Call Chain = app_service_task &rArr; command &rArr; stop_and_restore &rArr; request_target &rArr; temp_service_set_target &rArr; xQueueGenericSend &rArr; xTaskResumeAll &rArr; xTaskIncrementTick
 </UL>
 <BR>[Calls]<UL><LI><a href="#[1c9]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;xQueueReceive
@@ -2093,7 +2093,7 @@ Global Symbols
 <BR><BR>[Called By]<UL><LI><a href="#[63]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;app_service_task
 </UL>
 
-<P><STRONG><a name="[246]"></a>incubator_model_init</STRONG> (Thumb, 32 bytes, Stack size 8 bytes, incubator_model.o(i.incubator_model_init))
+<P><STRONG><a name="[246]"></a>incubator_model_init</STRONG> (Thumb, 28 bytes, Stack size 8 bytes, incubator_model.o(i.incubator_model_init))
 <BR><BR>[Stack]<UL><LI>Max Depth = 8<LI>Call Chain = incubator_model_init
 </UL>
 <BR>[Calls]<UL><LI><a href="#[150]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;__aeabi_memclr4
@@ -8856,7 +8856,6 @@ Global Symbols
 <LI><a href="#[3b6]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;lv_obj_get_style_text_font_internal
 <LI><a href="#[3b7]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;lv_obj_get_style_border_width_internal
 <LI><a href="#[3b4]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;draw_main
-<LI><a href="#[6c8]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;lv_obj_get_style_text_font_internal
 <LI><a href="#[6c5]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;lv_obj_get_style_text_color_internal
 <LI><a href="#[6c0]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;lv_obj_get_style_radial_offset_internal
 <LI><a href="#[6bd]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;lv_obj_get_style_pad_top_internal
@@ -8878,6 +8877,7 @@ Global Symbols
 <LI><a href="#[6d3]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;lv_obj_get_style_translate_x_internal
 <LI><a href="#[6ce]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;lv_obj_get_style_text_opa_internal
 <LI><a href="#[6ca]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;lv_obj_get_style_text_letter_space_internal
+<LI><a href="#[6c8]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;lv_obj_get_style_text_font_internal
 <LI><a href="#[6d2]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;lv_obj_get_style_transform_width_internal
 <LI><a href="#[6cf]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;lv_obj_get_style_transform_height_internal
 <LI><a href="#[6be]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;lv_obj_get_style_pad_top_internal
@@ -13151,8 +13151,8 @@ Global Symbols
 <LI><a href="#[62]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;temp_service_task
 </UL>
 
-<P><STRONG><a name="[62]"></a>temp_service_task</STRONG> (Thumb, 550 bytes, Stack size 56 bytes, temp_service.o(i.temp_service_task))
-<BR><BR>[Stack]<UL><LI>Max Depth = 1080<LI>Call Chain = temp_service_task &rArr; temp_ctrl_read_temperature &rArr; modbus_read_input_registers &rArr; read_regs &rArr; transaction &rArr; rs485_port_exchange &rArr; osMutexAcquire &rArr; xQueueTakeMutexRecursive &rArr; xQueueSemaphoreTake &rArr; xTaskResumeAll &rArr; xTaskIncrementTick
+<P><STRONG><a name="[62]"></a>temp_service_task</STRONG> (Thumb, 618 bytes, Stack size 96 bytes, temp_service.o(i.temp_service_task))
+<BR><BR>[Stack]<UL><LI>Max Depth = 1120<LI>Call Chain = temp_service_task &rArr; temp_ctrl_read_temperature &rArr; modbus_read_input_registers &rArr; read_regs &rArr; transaction &rArr; rs485_port_exchange &rArr; osMutexAcquire &rArr; xQueueTakeMutexRecursive &rArr; xQueueSemaphoreTake &rArr; xTaskResumeAll &rArr; xTaskIncrementTick
 </UL>
 <BR>[Calls]<UL><LI><a href="#[1c9]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;xQueueReceive
 <LI><a href="#[24b]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;xQueueGenericSend
@@ -13177,7 +13177,6 @@ Global Symbols
 <BR><BR>[Stack]<UL><LI>Max Depth = 824<LI>Call Chain = ui_layout_init &rArr; ui_layout_process &rArr; render_time_widget &rArr; bar &rArr; lv_obj_remove_flag &rArr; lv_obj_set_scrollable &rArr; lv_obj_get_scrollbar_area &rArr; lv_obj_get_scroll_left &rArr; lv_obj_get_self_width &rArr; lv_obj_send_event &rArr; event_send_core &rArr;  event_send_core (Cycle)
 </UL>
 <BR>[Calls]<UL><LI><a href="#[138]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;HAL_GetTick
-<LI><a href="#[327]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;create_temperature_area
 <LI><a href="#[326]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;create_page_frame
 <LI><a href="#[322]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;create_icons
 <LI><a href="#[321]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;create_header_area
@@ -13196,6 +13195,7 @@ Global Symbols
 <LI><a href="#[323]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;rect
 <LI><a href="#[400]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;focus_update
 <LI><a href="#[328]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;create_timing_area
+<LI><a href="#[327]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;create_temperature_area
 <LI><a href="#[247]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;__aeabi_memcpy4
 </UL>
 <BR>[Called By]<UL><LI><a href="#[64]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;lvgl_port_task
@@ -13219,7 +13219,7 @@ Global Symbols
 <LI><a href="#[64]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;lvgl_port_task
 </UL>
 
-<P><STRONG><a name="[7ba]"></a>ui_layout_process</STRONG> (Thumb, 246 bytes, Stack size 24 bytes, ui_layout.o(i.ui_layout_process))
+<P><STRONG><a name="[7ba]"></a>ui_layout_process</STRONG> (Thumb, 256 bytes, Stack size 24 bytes, ui_layout.o(i.ui_layout_process))
 <BR><BR>[Stack]<UL><LI>Max Depth = 784<LI>Call Chain = ui_layout_process &rArr; render_time_widget &rArr; bar &rArr; lv_obj_remove_flag &rArr; lv_obj_set_scrollable &rArr; lv_obj_get_scrollbar_area &rArr; lv_obj_get_scroll_left &rArr; lv_obj_get_self_width &rArr; lv_obj_send_event &rArr; event_send_core &rArr;  event_send_core (Cycle)
 </UL>
 <BR>[Calls]<UL><LI><a href="#[851]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;key_is_pressed
@@ -13906,12 +13906,13 @@ Global Symbols
 <H3>
 Local Symbols
 </H3>
-<P><STRONG><a name="[1cd]"></a>fb_accept</STRONG> (Thumb, 142 bytes, Stack size 16 bytes, motor.o(i.fb_accept))
-<BR><BR>[Stack]<UL><LI>Max Depth = 48<LI>Call Chain = fb_accept &rArr; set_state &rArr; __2printf
+<P><STRONG><a name="[1cd]"></a>fb_accept</STRONG> (Thumb, 218 bytes, Stack size 24 bytes, motor.o(i.fb_accept))
+<BR><BR>[Stack]<UL><LI>Max Depth = 112<LI>Call Chain = fb_accept &rArr; motor_pulse &rArr; osDelay &rArr; vTaskDelay &rArr; xTaskResumeAll &rArr; xTaskIncrementTick
 </UL>
 <BR>[Calls]<UL><LI><a href="#[1cc]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;xTaskGetTickCount
 <LI><a href="#[138]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;HAL_GetTick
 <LI><a href="#[1cb]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;set_state
+<LI><a href="#[1ca]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;motor_pulse
 <LI><a href="#[1c6]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;__2printf
 </UL>
 <BR>[Called By]<UL><LI><a href="#[61]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;MotorTask
@@ -13941,6 +13942,7 @@ Local Symbols
 <LI><a href="#[1c6]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;__2printf
 </UL>
 <BR>[Called By]<UL><LI><a href="#[61]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;MotorTask
+<LI><a href="#[1cd]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;fb_accept
 </UL>
 
 <P><STRONG><a name="[7c6]"></a>send_cmd</STRONG> (Thumb, 76 bytes, Stack size 16 bytes, motor.o(i.send_cmd))
@@ -14103,13 +14105,14 @@ Local Symbols
 <LI><a href="#[7b9]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;ui_layout_key
 </UL>
 
-<P><STRONG><a name="[1ec]"></a>allowed</STRONG> (Thumb, 84 bytes, Stack size 8 bytes, ui_layout.o(i.allowed))
+<P><STRONG><a name="[1ec]"></a>allowed</STRONG> (Thumb, 110 bytes, Stack size 8 bytes, ui_layout.o(i.allowed))
 <BR><BR>[Stack]<UL><LI>Max Depth = 8<LI>Call Chain = allowed
 </UL>
 <BR>[Calls]<UL><LI><a href="#[239]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;incubator_model_active
 </UL>
 <BR>[Called By]<UL><LI><a href="#[1eb]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;action_icon_visibility
 <LI><a href="#[7ba]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;ui_layout_process
+<LI><a href="#[816]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;render_start_control
 <LI><a href="#[7c8]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;nav
 </UL>
 
@@ -14345,8 +14348,8 @@ Local Symbols
 <BR>[Called By]<UL><LI><a href="#[7ba]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;ui_layout_process
 </UL>
 
-<P><STRONG><a name="[815]"></a>render_phase_indicator</STRONG> (Thumb, 220 bytes, Stack size 32 bytes, ui_layout.o(i.render_phase_indicator))
-<BR><BR>[Stack]<UL><LI>Max Depth = 640<LI>Call Chain = render_phase_indicator &rArr; icon_state &rArr; lv_obj_remove_flag &rArr; lv_obj_set_scrollable &rArr; lv_obj_get_scrollbar_area &rArr; lv_obj_get_scroll_left &rArr; lv_obj_get_self_width &rArr; lv_obj_send_event &rArr; event_send_core &rArr;  event_send_core (Cycle)
+<P><STRONG><a name="[815]"></a>render_phase_indicator</STRONG> (Thumb, 228 bytes, Stack size 40 bytes, ui_layout.o(i.render_phase_indicator))
+<BR><BR>[Stack]<UL><LI>Max Depth = 648<LI>Call Chain = render_phase_indicator &rArr; icon_state &rArr; lv_obj_remove_flag &rArr; lv_obj_set_scrollable &rArr; lv_obj_get_scrollbar_area &rArr; lv_obj_get_scroll_left &rArr; lv_obj_get_self_width &rArr; lv_obj_send_event &rArr; event_send_core &rArr;  event_send_core (Cycle)
 </UL>
 <BR>[Calls]<UL><LI><a href="#[810]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;value
 <LI><a href="#[811]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;tint
@@ -14355,10 +14358,11 @@ Local Symbols
 <BR>[Called By]<UL><LI><a href="#[7ba]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;ui_layout_process
 </UL>
 
-<P><STRONG><a name="[816]"></a>render_start_control</STRONG> (Thumb, 126 bytes, Stack size 24 bytes, ui_layout.o(i.render_start_control))
+<P><STRONG><a name="[816]"></a>render_start_control</STRONG> (Thumb, 142 bytes, Stack size 24 bytes, ui_layout.o(i.render_start_control))
 <BR><BR>[Stack]<UL><LI>Max Depth = 584<LI>Call Chain = render_start_control &rArr; tint &rArr; lv_obj_set_style_text_color &rArr; lv_obj_set_local_style_prop &rArr; lv_obj_refresh_style &rArr; refresh_children_style &rArr;  refresh_children_style (Cycle)
 </UL>
-<BR>[Calls]<UL><LI><a href="#[810]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;value
+<BR>[Calls]<UL><LI><a href="#[1ec]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;allowed
+<LI><a href="#[810]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;value
 <LI><a href="#[811]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;tint
 </UL>
 <BR>[Called By]<UL><LI><a href="#[7ba]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;ui_layout_process
@@ -14374,7 +14378,7 @@ Local Symbols
 <BR>[Called By]<UL><LI><a href="#[7ba]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;ui_layout_process
 </UL>
 
-<P><STRONG><a name="[818]"></a>render_temperature_setpoint</STRONG> (Thumb, 88 bytes, Stack size 120 bytes, ui_layout.o(i.render_temperature_setpoint))
+<P><STRONG><a name="[818]"></a>render_temperature_setpoint</STRONG> (Thumb, 148 bytes, Stack size 120 bytes, ui_layout.o(i.render_temperature_setpoint))
 <BR><BR>[Stack]<UL><LI>Max Depth = 608<LI>Call Chain = render_temperature_setpoint &rArr; value &rArr; lv_label_set_text &rArr; set_text_internal &rArr; lv_label_mark_need_refr_text &rArr; lv_obj_invalidate &rArr; obj_invalidate_area_internal &rArr; invalidate_area_core &rArr; lv_inv_area &rArr; lv_display_send_event &rArr; lv_event_push_and_send &rArr; lv_event_send &rArr; cleanup_event_list &rArr; cleanup_event_list_core &rArr; lv_array_resize &rArr; lv_realloc &rArr; lv_free &rArr; lv_free_core &rArr; lv_mutex_unlock &rArr; prvCheckMutexInit &rArr; xQueueCreateMutex &rArr; prvInitialiseMutex &rArr; xQueueGenericSend &rArr; xTaskResumeAll &rArr; xTaskIncrementTick
 </UL>
 <BR>[Calls]<UL><LI><a href="#[810]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;value
@@ -14434,11 +14438,11 @@ Local Symbols
 <LI><a href="#[610]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;lv_label_set_long_mode
 <LI><a href="#[5cf]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;lv_label_create
 </UL>
-<BR>[Called By]<UL><LI><a href="#[327]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;create_temperature_area
-<LI><a href="#[321]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;create_header_area
+<BR>[Called By]<UL><LI><a href="#[321]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;create_header_area
 <LI><a href="#[320]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;create_delay_area
 <LI><a href="#[31e]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;create_action_area
 <LI><a href="#[328]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;create_timing_area
+<LI><a href="#[327]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;create_temperature_area
 </UL>
 
 <P><STRONG><a name="[811]"></a>tint</STRONG> (Thumb, 28 bytes, Stack size 8 bytes, ui_layout.o(i.tint))
@@ -14490,7 +14494,7 @@ Local Symbols
 <BR><BR>[Called By]<UL><LI><a href="#[62]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;temp_service_task
 </UL>
 
-<P><STRONG><a name="[253]"></a>command</STRONG> (Thumb, 422 bytes, Stack size 64 bytes, app_service.o(i.command))
+<P><STRONG><a name="[253]"></a>command</STRONG> (Thumb, 414 bytes, Stack size 64 bytes, app_service.o(i.command))
 <BR><BR>[Stack]<UL><LI>Max Depth = 232<LI>Call Chain = command &rArr; stop_and_restore &rArr; request_target &rArr; temp_service_set_target &rArr; xQueueGenericSend &rArr; xTaskResumeAll &rArr; xTaskIncrementTick
 </UL>
 <BR>[Calls]<UL><LI><a href="#[255]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;motor_open
@@ -22606,11 +22610,11 @@ Local Symbols
 <P><STRONG><a name="[833]"></a>scale_set_indicator_label_properties</STRONG> (Thumb, 208 bytes, Stack size 32 bytes, lv_scale.o(i.scale_set_indicator_label_properties))
 <BR><BR>[Stack]<UL><LI>Max Depth = 152<LI>Call Chain = scale_set_indicator_label_properties &rArr; lv_obj_get_style_text_opa_internal &rArr; lv_obj_get_style_prop_internal &rArr; get_selector_style_prop &rArr; get_prop_core &rArr; lv_style_get_prop_internal
 </UL>
-<BR>[Calls]<UL><LI><a href="#[6c8]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;lv_obj_get_style_text_font_internal
-<LI><a href="#[6c5]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;lv_obj_get_style_text_color_internal
+<BR>[Calls]<UL><LI><a href="#[6c5]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;lv_obj_get_style_text_color_internal
 <LI><a href="#[839]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;lv_style_get_prop_internal
 <LI><a href="#[6ce]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;lv_obj_get_style_text_opa_internal
 <LI><a href="#[6ca]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;lv_obj_get_style_text_letter_space_internal
+<LI><a href="#[6c8]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;lv_obj_get_style_text_font_internal
 </UL>
 <BR>[Called By]<UL><LI><a href="#[730]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;scale_draw_indicator
 </UL>

@@ -48,6 +48,9 @@
 #define S_MUTE         "\xE6\xB6\x88\xE9\x9F\xB3"                        /* 消音操作 */
 #define S_NOT_BUZZ     "\xE6\x9C\xAA\xE8\x9C\x82\xE9\xB8\xA3"  /* 当前没有蜂鸣提示 */
 #define S_SET_FMT      "\xE8\xAE\xBE\xE5\xAE\x9A %ld.%ld"          /* 顶部设定温度格式 */
+#define S_CURRENT_FMT  "\xE5\xBD\x93\xE5\x89\x8D %ld.%ld\xE2\x84\x83" /* 尚未设定目标时显示实时温度 */
+#define S_CURRENT_UNKNOWN "\xE5\xBD\x93\xE5\x89\x8D --.-\xE2\x84\x83" /* 实时温度尚无有效读数 */
+#define S_UNSET        "\xE6\x9C\xAA\xE8\xAE\xBE\xE5\xAE\x9A" /* 尚未设置目标温度 */
 #define S_COMM_ERROR   "\xE9\x80\x9A\xE8\xAE\xAF\xE5\xBC\x82\xE5\xB8\xB8" /* 温度通信异常 */
 #define S_TEMP_ERROR   "\xE6\xB8\xA9\xE6\x8E\xA7\xE5\xBC\x82\xE5\xB8\xB8" /* 温控或写入异常 */
 #define S_LID_ERROR    "\xE5\xBC\x80\xE7\x9B\x96\xE5\xBC\x82\xE5\xB8\xB8" /* 舱门异常 */
@@ -262,7 +265,8 @@ static int allowed(uint8_t i)
     case FOCUS_TEMPERATURE: return ph == INC_IDLE;
     case FOCUS_TIME: return ph == INC_IDLE;
     case FOCUS_DELAY: return ph == INC_IDLE || ph == INC_RUNNING;
-    case FOCUS_START: return ph == INC_IDLE;
+    case FOCUS_START: return ph == INC_IDLE && s_view.temp.online &&
+                   s_view.temp.valid && !s_view.temp.alarm && s_view.temp.target_valid;
     case FOCUS_STOP: return incubator_model_active(&s_view.run) ||
                    ph == INC_FINISHED || ph == INC_ERROR;           /* 停止：运行中、已完成或出错时可操作 */
     case FOCUS_DOOR: return s_view.door != MOTOR_OPENING &&
@@ -724,13 +728,25 @@ static int digit_x(const lv_font_t *font, const char *s, uint8_t index)
 /* 读取当前用于界面显示的目标温度：优先采用已应用值，否则显示用户设定值。 */
 static int32_t current_display_target(void)
 {
-    return s_view.temp.target_valid ? s_view.temp.applied_centi : s_view.run.target_centi;
+    if(s_view.temp.target_valid) return s_view.temp.applied_centi;
+    return s_view.temp.valid ? s_view.temp.pv_centi : 0;
 }
 
 /* 绘制顶部目标温度和当前设定值；这里只更新文字，不提交温控命令。 */
 static void render_temperature_setpoint(int32_t display_target)
 {
     char b[96];
+    if(!s_view.temp.target_valid) {
+        if(s_view.temp.valid) {
+            snprintf(b, sizeof(b), S_CURRENT_FMT, (long)(s_view.temp.pv_centi / 100),
+                     (long)((s_view.temp.pv_centi % 100) / 10));
+            value(s_target, b);
+        } else {
+            value(s_target, S_CURRENT_UNKNOWN);
+        }
+        value(s_sv, S_UNSET);
+        return;
+    }
     snprintf(b, sizeof(b), S_TARGET_FMT, (long)(display_target / 100),
              (long)((display_target % 100) / 10));
     value(s_target, b);
@@ -839,6 +855,7 @@ static void render_phase_indicator(int32_t display_target)
     default:
         /* 空闲状态按传感器有效性、目标温度和恒温标志显示。 */
         if(!s_view.temp.valid) { phase_txt = S_WAIT; phase_col = MUTED; }
+        else if(!s_view.temp.target_valid) { phase_txt = S_WAIT; phase_col = MUTED; }
         else if(s_view.at_temperature) { phase_txt = S_HOLD; phase_col = GREEN; }
         else if(s_view.temp.pv_centi < display_target) { phase_txt = S_HEAT; phase_col = RED; heat = 1; }
         else { phase_txt = S_COOL; phase_col = BLUE; cool = 1; }
@@ -987,7 +1004,7 @@ static void render_start_control(void)
     } else if(ph == INC_COOL_REQUEST || ph == INC_COOLING || ph == INC_STORAGE) {
         value(s_kt[ACTION_START], S_START); tint(s_kt[ACTION_START], DISABLED);
         value(s_kn[ACTION_START], S_DONE); tint(s_kn[ACTION_START], DISABLED);
-    } else if(ph == INC_IDLE) {
+    } else if(ph == INC_IDLE && allowed(FOCUS_START)) {
         value(s_kt[ACTION_START], S_START); tint(s_kt[ACTION_START], GREEN);
         value(s_kn[ACTION_START], "SET"); tint(s_kn[ACTION_START], MUTED);
     } else {

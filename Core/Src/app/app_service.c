@@ -19,7 +19,6 @@ static app_snapshot_t s_app; /* 只有应用服务任务可以修改此实例。
 static uint32_t s_next_id, s_pending_id, s_write_started_ms;
 static int32_t s_requested_target;
 static uint8_t s_auto_write;
-static uint8_t s_boot_target_requested;
 
 /* 将服务命令和拒绝原因转换为简洁日志，便于串口追踪按键后的业务结果。 */
 static const char *command_name(app_command_kind_t kind)
@@ -72,7 +71,6 @@ __WEAK int app_board_buzzer_set(int enabled) { (void)enabled; return 0; }
 int app_service_init(void)
 {
     memset(&s_app, 0, sizeof(s_app));
-    s_boot_target_requested = 0;
     incubator_model_init(&s_app.run);
     s_published = s_app;
     s_commands = xQueueCreate(8, sizeof(app_command_t));
@@ -134,7 +132,6 @@ static void command(const app_command_t *c, uint32_t now, uint8_t *door_request)
         else if(c->value < APP_TEMP_MIN_CENTI || c->value > APP_TEMP_MAX_CENTI)
             s_app.message = APP_MSG_SET_TEMP;
         else if(!request_target(c->value, 0, now)) s_app.message = APP_MSG_BUSY;
-        else s_boot_target_requested = 1;
         break;
     case APP_SET_TIME:
         if(incubator_model_active(&s_app.run)) s_app.message = APP_MSG_SETTING_LOCKED;
@@ -244,11 +241,6 @@ void app_service_task(void *argument)
             uint8_t before = door_request;
             command(&c, now, &door_request);
             if(!before && door_request) door_request_ms = now;
-        }
-        if(!s_boot_target_requested && !s_app.target_pending &&
-           s_app.temp.online && s_app.temp.valid && !s_app.temp.alarm) {
-            if(request_target(s_app.run.target_centi, 0, now))
-                s_boot_target_requested = 1;
         }
         if(door_request) {
             if(s_app.door == MOTOR_OPEN || s_app.door == MOTOR_CLOSED) {

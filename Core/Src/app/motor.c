@@ -80,6 +80,8 @@ static volatile TickType_t   s_move_start = 0;   /* 本次动作发起时刻 */
 
 static volatile uint32_t    s_cap_fall = 0;      /* ISR: 最近下降沿(低脉冲开始) */
 static volatile uint8_t     s_power_on = 0;
+static uint8_t s_close_followup_sent;
+static uint8_t s_close_speed;
 
 /* 私有函数声明 --------------------------------------------------------------*/
 static void motor_hw_init(void);
@@ -258,7 +260,23 @@ static void fb_accept(fb_event_t e)
       break;
 
     case MOTOR_CLOSING:
-      if (e == FB_CLOSED_DONE) set_state(MOTOR_CLOSED);
+      if (e == FB_CLOSED_DONE && !s_close_followup_sent)
+      {
+        uint16_t pulse_ms = MOTOR_PULSE_DOWN_1 + (s_close_speed - 1) * 10;
+        /* 电机首次上报关闭可能早于机械到位，补发一次相同关盖指令压实舱门。 */
+        s_close_followup_sent = 1;
+        printf("[motor] early CLOSED feedback; send final close pulse %ums\r\n", pulse_ms);
+        motor_pulse(pulse_ms);
+        s_move_start = xTaskGetTickCount();
+        s_deadline = s_move_start + pdMS_TO_TICKS(MOTOR_MOVE_TIMEOUT_MS);
+      }
+      else if (e == FB_CLOSED_DONE && s_close_followup_sent &&
+               (xTaskGetTickCount() - s_move_start) >=
+               pdMS_TO_TICKS(MOTOR_CLOSE_CONFIRM_MIN_MS))
+      {
+        printf("[motor] final CLOSED feedback confirmed\r\n");
+        set_state(MOTOR_CLOSED);
+      }
       else if (e == FB_OPEN_DONE &&
                (xTaskGetTickCount() - s_move_start) >=
                pdMS_TO_TICKS(MOTOR_FB_FIRST_TIMEOUT_MS))
@@ -315,6 +333,8 @@ static void motor_act_open(uint8_t speed)
   */
 static void motor_act_close(uint8_t speed)
 {
+  s_close_followup_sent = 0;
+  s_close_speed = speed;
   motor_pulse(MOTOR_PULSE_DOWN_1 + (speed - 1) * 10); /* 50/60/70 */
   set_state(MOTOR_CLOSING);
   s_move_start = xTaskGetTickCount();
@@ -363,6 +383,8 @@ void MotorTask(void *argument)
           break;
 
         case MCMD_CLOSE:
+          /* 丢弃关盖命令前积压的旧到位心跳，避免把旧状态误判为本次动作反馈。 */
+          while (xQueueReceive(s_fb_q, &w_us, 0) == pdPASS) { }
           motor_act_close(cmd.speed);
           break;
 

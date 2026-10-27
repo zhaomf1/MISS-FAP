@@ -67,7 +67,8 @@ void temp_service_snapshot(temp_snapshot_t *out)
 void temp_service_task(void *argument)
 {
     temp_command_t command;
-    uint8_t initialized = 0, failures = 0, poll_failure_logged = 0;
+    uint8_t initialized = 0, output_off_confirmed = 0;
+    uint8_t failures = 0, poll_failure_logged = 0;
     uint32_t last_init_log_ms = 0, last_poll_log_ms = 0;
     (void)argument;
     for(;;) {
@@ -84,6 +85,19 @@ void temp_service_task(void *argument)
                 last_init_log_ms = HAL_GetTick();
                 printf("[temp] controller init FAILED: timeout write=%s(%d), retrying\r\n",
                        modbus_result_name(init_result), init_result);
+            }
+        }
+        /* 上电时明确关闭温控输出，防止温控器保留上次运行状态；用户设温后再开启。 */
+        if(initialized && !output_off_confirmed) {
+            int off_result = temp_ctrl_switch_ctrl_temperature(0);
+            if(off_result == MODBUS_OK) {
+                output_off_confirmed = 1;
+                printf("[temp] boot control disable: OK\r\n");
+            } else if(last_init_log_ms == 0 ||
+                      (uint32_t)(HAL_GetTick() - last_init_log_ms) >= 5000u) {
+                last_init_log_ms = HAL_GetTick();
+                printf("[temp] boot control disable FAILED: %s(%d), retrying\r\n",
+                       modbus_result_name(off_result), off_result);
             }
         }
         if(xQueueReceive(s_commands, &command, 0) == pdPASS) {

@@ -10,7 +10,8 @@
 void incubator_model_init(incubator_model_t *m)
 {
     memset(m, 0, sizeof(*m));
-    m->target_centi = 3700;
+    /* 上电不预置目标温度；只有用户设定后才会向温控器写入并开启控制。 */
+    m->target_centi = 0;
     m->time_s = 15u * 60u;
     m->delay_s = 60;
     m->phase = INC_IDLE;
