@@ -13,10 +13,10 @@
   * PD13 复用为 GPIO 输出, 极性由 MOTOR_CMD_INVERTED 决定
   *
   * 使用流程 (应用层):
-  *   1. 上电后 MotorTask 自动完成硬件初始化 (状态=UNINIT)
-  *   2. motor_init()   —— 发安装方式指令(i90), 电机自校准, 到位后状态=CLOSED/OPEN
+  *   1. 上电后 MotorTask 初始化硬件，等待电机启动后自动发送安装指令
+  *   2. 左装发送90ms脉冲，电机自校准并反馈到位状态
   *   3. motor_open()/motor_close() —— 上翻/下翻(1~3档), 到位自动停
-  *   4. motor_get_state() 查询状态; FAULT 后重新 motor_init() 恢复
+  *   4. motor_get_state() 查询状态; FAULT 后可重新 motor_init() 恢复
   *
   * 信号语义 (2026-10-19 实测+文档确认):
   *   到位信号(0.8/7.5ms)到位后持续广播(心跳)——状态机只消费这两档

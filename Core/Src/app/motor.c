@@ -340,8 +340,14 @@ void MotorTask(void *argument)
          MOTOR_STARTUP_DELAY_MS);
   osDelay(MOTOR_STARTUP_DELAY_MS);
 
-  /* 驱动版: 上电不自动安装。应用层按业务时机调用 motor_init()。
-   * 电机每次上电必须先收到安装指令才能正常升降。 */
+  /* 每次上电自动发送一次安装方式指令；左装配置会输出 90ms 脉冲。 */
+  {
+    motor_ret_t ret = motor_init();
+    printf("[motor] boot install command: side=%s pulse=%ums result=%s\r\n",
+           MOTOR_SIDE == MOTOR_SIDE_LEFT ? "LEFT" : "RIGHT",
+           MOTOR_SIDE == MOTOR_SIDE_LEFT ? MOTOR_PULSE_INSTALL_LEFT : MOTOR_PULSE_INSTALL_RIGHT,
+           ret == MOTOR_RET_OK ? "QUEUED" : "FAILED");
+  }
 
   for (;;)
   {

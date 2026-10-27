@@ -10,7 +10,7 @@ typedef enum {
 } app_command_kind_t;
 typedef struct { app_command_kind_t kind; int32_t value; } app_command_t;
 typedef enum {
-    APP_MSG_NONE, APP_MSG_BUSY, APP_MSG_SET_TEMP, APP_MSG_CONTROL_PENDING,
+    APP_MSG_NONE, APP_MSG_BUSY, APP_MSG_SET_TEMP,
     APP_MSG_TEMP_OFFLINE, APP_MSG_WRITE_FAILED, APP_MSG_DOOR_FAILED,
     APP_MSG_SETTING_LOCKED
 } app_message_t;

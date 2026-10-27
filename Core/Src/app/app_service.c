@@ -43,7 +43,6 @@ static const char *message_name(app_message_t message)
     case APP_MSG_NONE: return "ACCEPTED";
     case APP_MSG_BUSY: return "REJECTED_BUSY";
     case APP_MSG_SET_TEMP: return "REJECTED_SETPOINT_NOT_CONFIRMED";
-    case APP_MSG_CLOSE_LID: return "REJECTED_DOOR_NOT_CLOSED";
     case APP_MSG_TEMP_OFFLINE: return "REJECTED_TEMP_OFFLINE_OR_ALARM";
     case APP_MSG_WRITE_FAILED: return "TEMP_WRITE_FAILED";
     case APP_MSG_DOOR_FAILED: return "DOOR_ACTION_FAILED";
@@ -161,14 +160,13 @@ static void command(const app_command_t *c, uint32_t now, uint8_t *door_request)
             stop_and_restore(now);
         break;
     case APP_START:
-        if(s_app.target_pending || *door_request || motor_command_pending() || incubator_model_active(&s_app.run))
+        /* 开始只启动计时；舱门动作状态不参与温控或计时启动判定。 */
+        if(s_app.target_pending || incubator_model_active(&s_app.run))
             s_app.message = APP_MSG_BUSY;
         else if(!s_app.temp.online || !s_app.temp.valid || s_app.temp.alarm)
             s_app.message = APP_MSG_TEMP_OFFLINE;
         else if(!s_app.temp.target_valid || s_app.run.phase == INC_ERROR)
             s_app.message = APP_MSG_SET_TEMP;
-        else if(APP_REQUIRE_CLOSED && (motor_get_state() != MOTOR_CLOSED || s_app.door_fault))
-            s_app.message = APP_MSG_CLOSE_LID;
         else incubator_model_start(&s_app.run, now);
         break;
     case APP_MUTE:
@@ -180,7 +178,7 @@ static void command(const app_command_t *c, uint32_t now, uint8_t *door_request)
            s_app.door == MOTOR_OPENING || s_app.door == MOTOR_CLOSING) {
             s_app.message = APP_MSG_BUSY;
         } else if(s_app.door == MOTOR_UNINIT || s_app.door == MOTOR_FAULT || s_app.door_fault) {
-            /* 第一次明确操作舱门时才允许执行校准，不能因为 MCU 上电就自动运动。 */
+            /* 上电校准未完成或舱门故障时，允许用户明确请求一次重新安装校准。 */
             if(motor_init() == MOTOR_RET_OK) *door_request = c->kind == APP_OPEN ? 1 : 2;
             else s_app.message = APP_MSG_DOOR_FAILED;
         } else if(s_app.door_fault ||

@@ -519,7 +519,26 @@ static void nav(uint32_t key)
     const uint8_t *map = key == KEY_RIGHT ? right : key == KEY_LEFT ? left :
                          key == KEY_UP ? up : down;
     uint8_t next = map[s_focus_index];
-    for(uint8_t i = 0; i < FOCUS_COUNT && !allowed(next); ++i) next = map[next];
+    uint8_t visited[FOCUS_COUNT] = {0};
+    uint8_t steps;
+
+    /* 几何导航表可能在不可用控件间形成闭环，记录访问项后再做顺序兜底。 */
+    for(steps = 0; steps < FOCUS_COUNT && !allowed(next) && !visited[next]; ++steps) {
+        visited[next] = 1;
+        next = map[next];
+    }
+    if(!allowed(next) || next == s_focus_index) {
+        int direction = (key == KEY_RIGHT || key == KEY_DOWN) ? 1 : -1;
+        for(steps = 1; steps <= FOCUS_COUNT; ++steps) {
+            int candidate = (int)s_focus_index + direction * (int)steps;
+            while(candidate < 0) candidate += FOCUS_COUNT;
+            candidate %= FOCUS_COUNT;
+            if(allowed((uint8_t)candidate)) {
+                next = (uint8_t)candidate;
+                break;
+            }
+        }
+    }
     if(allowed(next)) {
         s_focus_index = next;
         s_edit = 0;
@@ -916,7 +935,6 @@ static void render_delay_widget(void)
     if(s_view.message != APP_MSG_NONE) {
         const char *msg = s_view.message == APP_MSG_BUSY ? "BUSY" :
                           s_view.message == APP_MSG_SET_TEMP ? S_SET_TEMP_MSG :
-                          s_view.message == APP_MSG_CLOSE_LID ? S_CLOSE :
                           s_view.message == APP_MSG_TEMP_OFFLINE ? S_COMM_ERROR :
                           s_view.message == APP_MSG_DOOR_FAILED ? S_LID_ERROR :
                           s_view.message == APP_MSG_SETTING_LOCKED ? S_STARTING : S_TEMP_ERROR;
@@ -1092,7 +1110,12 @@ void ui_layout_process(void)
     if(!allowed(s_focus_index)) {
         uint8_t i;
         s_edit = 0;
-        for(i = 0; i < FOCUS_COUNT; ++i) if(allowed(i)) { s_focus_index = i; break; }
+        /* 当前控件因运行状态变为禁用时，优先落到后续最近的可用控件。
+         * 例如开始后从 START 顺移到 STOP，而不是跳回左侧第一个字段。 */
+        for(i = 1; i <= FOCUS_COUNT; ++i) {
+            uint8_t candidate = (uint8_t)((s_focus_index + i) % FOCUS_COUNT);
+            if(allowed(candidate)) { s_focus_index = candidate; break; }
+        }
         focus_update();
     }
 
