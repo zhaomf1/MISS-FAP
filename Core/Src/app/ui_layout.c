@@ -18,6 +18,7 @@
 #define S_DOOR_CLOSED  "\xE5\xB7\xB2\xE5\x85\xB3"                        /* 舱门已关闭 */
 #define S_DOOR_OPEN    "\xE5\xB7\xB2\xE5\xBC\x80"                        /* 舱门已打开 */
 #define S_DOOR_MOVING  "\xE5\x8A\xA8\xE4\xBD\x9C\xE4\xB8\xAD"  /* 舱门电机动作中 */
+#define S_DOOR_INIT    "\xE5\x88\x9D\xE5\xA7\x8B\xE5\x8C\x96\xE4\xB8\xAD" /* 上电舱门初始化中 */
 #define S_DOOR_FAULT   "\xE6\x95\x85\xE9\x9A\x9C"                        /* 舱门故障 */
 #define S_HEAT         "\xE5\x8D\x87\xE6\xB8\xA9"                        /* 温度低于目标，正在升温 */
 #define S_COOL         "\xE9\x99\x8D\xE6\xB8\xA9"                        /* 温度高于目标，正在降温 */
@@ -36,7 +37,6 @@
 #define S_REMAIN_MIN   "\xE5\x89\xA9\xE4\xBD\x99 \xE5\x85\xB1 %lu.%lu min" /* 分钟格式：剩余总时长 */
 #define S_REMAIN_H     "\xE5\x89\xA9\xE4\xBD\x99 \xE5\x85\xB1 %lu.%lu h"   /* 小时格式：剩余总时长 */
 #define S_DELAY_TITLE  "\xE5\xBB\xB6\xE8\xBF\x9F 4\xE2\x84\x83 \xE4\xBF\x9D\xE5\xAD\x98" /* 延迟降温设置标题 */
-#define S_EDITABLE     "\xE5\x8F\xAF\xE7\xBC\x96\xE8\xBE\x91"  /* 当前控件可编辑 */
 #define S_AFTER        "%lu s \xE5\x90\x8E\xE9\x99\x8D\xE6\xB8\xA9" /* N 秒后开始降温 */
 #define S_COOLING      "\xE9\x99\x8D\xE6\xB8\xA9\xE4\xB8\xAD"  /* 自动降温进行中 */
 #define S_KEEP         "\xE4\xBF\x9D\xE5\xAD\x98\xE4\xB8\xAD \xE7\x9B\xB4\xE8\x87\xB3\xE5\x8F\x96\xE6\x9D\xBF" /* 持续保存直到取板 */
@@ -50,6 +50,9 @@
 #define S_SET_FMT      "\xE8\xAE\xBE\xE5\xAE\x9A %ld.%ld"          /* 顶部设定温度格式 */
 #define S_CURRENT_FMT  "\xE5\xBD\x93\xE5\x89\x8D %ld.%ld\xE2\x84\x83" /* 尚未设定目标时显示实时温度 */
 #define S_CURRENT_UNKNOWN "\xE5\xBD\x93\xE5\x89\x8D --.-\xE2\x84\x83" /* 实时温度尚无有效读数 */
+#define S_TARGET_SHORT "\xE7\x9B\xAE\xE6\xA0\x87 %ld.%ld\xE2\x84\x83" /* 温度框右下角目标温度简写 */
+#define S_CURRENT_SHORT "\xE5\xBD\x93\xE5\x89\x8D %ld.%ld\xE2\x84\x83" /* 温度框右下角当前温度简写 */
+#define S_CURRENT_SHORT_UNKNOWN "\xE5\xBD\x93\xE5\x89\x8D --.-\xE2\x84\x83" /* 当前温度无有效读数时的简写 */
 #define S_UNSET        "\xE6\x9C\xAA\xE8\xAE\xBE\xE5\xAE\x9A" /* 尚未设置目标温度 */
 #define S_COMM_ERROR   "\xE9\x80\x9A\xE8\xAE\xAF\xE5\xBC\x82\xE5\xB8\xB8" /* 温度通信异常 */
 #define S_TEMP_ERROR   "\xE6\xB8\xA9\xE6\x8E\xA7\xE5\xBC\x82\xE5\xB8\xB8" /* 温控或写入异常 */
@@ -62,16 +65,19 @@ static lv_font_t s_font12, s_font14, s_font28;
 #define F14 (&s_font14)
 #define F28 (&s_font28)
 
-#define BG       0x081B12
-#define HEADER   0x06140D
-#define LINE     0x244B36
-#define GREEN    0x6FFFA7
-#define MUTED    0x739C88
-#define DISABLED 0x446251
-#define YELLOW   0xFFD54A
-#define RED      0xFF7770
-#define ORANGE   0xFFA54A
-#define BLUE     0x5FC8FF
+/* 颜色格式为 RGB888（0xRRGGBB）；调高各通道数值会使颜色更亮。 */
+#define BG        0x193323 /* 页面主背景及左下操作卡片底色 */
+#define HEADER    0x142B1C /* 顶部状态栏背景 */
+#define PANEL     0x20452F /* 右上开始操作卡片背景 */
+#define PANEL_ALT 0x1C3D29 /* 右侧其余操作卡片背景 */
+#define LINE      0x3B684C /* 区域分隔线和卡片边框 */
+#define GREEN     0x6FFFA7 /* 正常、选中及进度状态 */
+#define MUTED     0x739C88 /* 普通说明文字和弱化状态 */
+#define DISABLED  0x446251 /* 当前不可操作控件 */
+#define YELLOW    0xFFD54A /* 参数编辑焦点和延迟提示 */
+#define RED       0xFF7770 /* 报警或无效温度 */
+#define ORANGE    0xFFA54A /* 运行及降温过渡状态 */
+#define BLUE      0x5FC8FF /* 降温状态 */
 
 /* 屏幕分区：顶部栏 24 像素，温度/时间各 64 像素，延迟区 88 像素。 */
 #define SCREEN_WIDTH  320
@@ -97,11 +103,12 @@ static lv_font_t s_font12, s_font14, s_font28;
 #define ICON_MUTE_X   285
 #define ICON_MUTE_Y   104
 #define TEMP_Y   24
-#define TEMP_H   64
-#define TIME_Y   88
-#define TIME_H   64
-#define DELAY_Y  152
-#define DELAY_H  88
+#define LEFT_ROW_H ACTION_ROW_H
+#define TEMP_H   LEFT_ROW_H
+#define TIME_Y   (TEMP_Y + LEFT_ROW_H)
+#define TIME_H   LEFT_ROW_H
+#define DELAY_Y  (TIME_Y + LEFT_ROW_H)
+#define DELAY_H  LEFT_ROW_H
 #define BAR_W    184
 
 /* 焦点编号与屏幕控件一一对应，输入导航和状态刷新共用此定义。 */
@@ -127,12 +134,14 @@ typedef enum {
 
 /* UI 只维护控件句柄和编辑状态，不在界面线程执行阻塞串口事务。 */
 static lv_obj_t *s_pv, *s_target, *s_time, *s_time_aux, *s_delay;
+static lv_obj_t *s_temp_unit;
+static lv_obj_t *s_delay_unit;
 static lv_obj_t *s_delay_set, *s_delay_state;
 static lv_obj_t *s_alarm, *s_door, *s_phase, *s_sv;
 static lv_obj_t *s_kt[ACTION_COUNT], *s_kn[ACTION_COUNT];       /* 四个操作卡片的主文字和辅助文字 */
 static lv_obj_t *s_ic_play[3], *s_ic_stop, *s_ic_door, *s_ic_mute[3];
 static lv_obj_t *s_ic_up[3], *s_ic_down[3], *s_ic_dot;
-static lv_obj_t *s_temp_bar, *s_time_bar, *s_delay_bar;
+static lv_obj_t *s_temp_bar;
 static lv_obj_t *s_focus, *s_digit;
 static uint8_t s_ok, s_focus_index, s_edit, s_digit_index;
 static int32_t s_draft;
@@ -368,17 +377,13 @@ static void create_page_frame(lv_obj_t *screen)
     rect(screen, 0, DELAY_Y - 1, LEFT_W, 1, LINE, 0);
 
     /* 右侧四个操作卡片按 2 列 2 行排列。 */
-    rect(screen, ACTION_LEFT_X, ACTION_TOP_Y, ACTION_LEFT_W, ACTION_ROW_H, 0x143523, 1);
-    rect(screen, ACTION_RIGHT_X, ACTION_TOP_Y, ACTION_RIGHT_W, ACTION_ROW_H, 0x102B1D, 1);
+    rect(screen, ACTION_LEFT_X, ACTION_TOP_Y, ACTION_LEFT_W, ACTION_ROW_H, PANEL, 1);
+    rect(screen, ACTION_RIGHT_X, ACTION_TOP_Y, ACTION_RIGHT_W, ACTION_ROW_H, PANEL_ALT, 1);
     rect(screen, ACTION_LEFT_X, ACTION_LOW_Y, ACTION_LEFT_W, ACTION_ROW_H, BG, 1);
-    rect(screen, ACTION_RIGHT_X, ACTION_LOW_Y, ACTION_RIGHT_W, ACTION_ROW_H, 0x10251A, 1);
+    rect(screen, ACTION_RIGHT_X, ACTION_LOW_Y, ACTION_RIGHT_W, ACTION_ROW_H, PANEL_ALT, 1);
 
-    rect(screen, 8, TEMP_Y + 62, BAR_W, 2, 0x263C2F, 0);
-    s_temp_bar = rect(screen, 8, TEMP_Y + 62, 0, 2, GREEN, 0);
-    rect(screen, 8, TIME_Y + 59, BAR_W, 4, 0x263C2F, 0);
-    s_time_bar = rect(screen, 8, TIME_Y + 59, 0, 4, GREEN, 0);
-    rect(screen, 8, DELAY_Y + 84, BAR_W, 3, 0x263C2F, 0);
-    s_delay_bar = rect(screen, 8, DELAY_Y + 84, 0, 3, YELLOW, 0);
+    rect(screen, 8, TEMP_Y + TEMP_H - 6, BAR_W, 2, 0x34513E, 0);
+    s_temp_bar = rect(screen, 8, TEMP_Y + TEMP_H - 6, 0, 2, GREEN, 0);
 }
 
 /* 创建顶部状态栏：报警、舱门、运行阶段和当前设定温度。 */
@@ -393,28 +398,29 @@ static void create_header_area(lv_obj_t *screen)
 /* 创建实时温度和目标温度显示区域。 */
 static void create_temperature_area(lv_obj_t *screen)
 {
-    text(screen, S_TEMP_TITLE, 8, 26, 184, 14, F12, MUTED, LV_TEXT_ALIGN_LEFT);
-    s_pv = text(screen, "--.-", 8, 40, 106, 32, F28, GREEN, LV_TEXT_ALIGN_LEFT);
-    text(screen, "\xE2\x84\x83", 118, 52, 24, 16, F12, MUTED, LV_TEXT_ALIGN_LEFT);
-    s_target = text(screen, "", 8, 72, 184, 14, F12, MUTED, LV_TEXT_ALIGN_LEFT);
+    text(screen, S_TEMP_TITLE, 8, TEMP_Y + 3, 184, 14, F12, MUTED, LV_TEXT_ALIGN_LEFT);
+    s_pv = text(screen, "--.-", 8, TEMP_Y + 19, 112, 32, F28, GREEN, LV_TEXT_ALIGN_LEFT);
+    s_temp_unit = text(screen, "\xE2\x84\x83", 0, TEMP_Y + 19, 36, 32, F28, MUTED, LV_TEXT_ALIGN_LEFT);
+    /* 当前/目标提示靠右下角显示，避免占用温度主数值区域。 */
+    s_target = text(screen, "", 8, TEMP_Y + 51, 184, 14, F12, MUTED, LV_TEXT_ALIGN_RIGHT);
 }
 
 /* 创建孵育时间主数值和剩余时间/运行状态说明。 */
 static void create_timing_area(lv_obj_t *screen)
 {
-    text(screen, S_TIME_TITLE, 8, 89, 184, 14, F12, MUTED, LV_TEXT_ALIGN_LEFT);
-    s_time = text(screen, "15.0 min", 8, 103, 184, 31, F28, 0xD2ECDD, LV_TEXT_ALIGN_LEFT);
-    s_time_aux = text(screen, S_WAIT, 8, 134, 184, 14, F12, MUTED, LV_TEXT_ALIGN_LEFT);
+    text(screen, S_TIME_TITLE, 8, TIME_Y + 3, 184, 14, F12, MUTED, LV_TEXT_ALIGN_LEFT);
+    s_time = text(screen, "15.0 min", 8, TIME_Y + 19, 184, 31, F28, 0xD2ECDD, LV_TEXT_ALIGN_LEFT);
+    s_time_aux = text(screen, S_WAIT, 8, TIME_Y + 51, 184, 14, F12, MUTED, LV_TEXT_ALIGN_LEFT);
 }
 
 /* 创建自动降温延迟设置、倒计时和状态提示区域。 */
 static void create_delay_area(lv_obj_t *screen)
 {
-    text(screen, S_DELAY_TITLE, 8, 153, 124, 14, F12, MUTED, LV_TEXT_ALIGN_LEFT);
-    s_delay_set = text(screen, "", 140, 153, 52, 14, F12, MUTED, LV_TEXT_ALIGN_RIGHT);
-    s_delay = text(screen, "0", 8, 170, 60, 34, F28, YELLOW, LV_TEXT_ALIGN_LEFT);
-    text(screen, "s", 74, 185, 14, 14, F12, MUTED, LV_TEXT_ALIGN_LEFT);
-    s_delay_state = text(screen, S_EDITABLE, 8, 207, 184, 14, F12, MUTED, LV_TEXT_ALIGN_LEFT);
+    text(screen, S_DELAY_TITLE, 8, DELAY_Y + 3, 124, 14, F12, MUTED, LV_TEXT_ALIGN_LEFT);
+    s_delay_set = text(screen, "", 140, DELAY_Y + 3, 52, 14, F12, MUTED, LV_TEXT_ALIGN_RIGHT);
+    s_delay = text(screen, "0", 8, DELAY_Y + 20, 60, 34, F28, YELLOW, LV_TEXT_ALIGN_LEFT);
+    s_delay_unit = text(screen, "s", 0, DELAY_Y + 20, 32, 34, F28, MUTED, LV_TEXT_ALIGN_LEFT);
+    s_delay_state = text(screen, "", 8, DELAY_Y + 54, 184, 14, F12, MUTED, LV_TEXT_ALIGN_LEFT);
 }
 
 /* 创建阶段图标和右侧操作图标；四个操作图标各自位于对应卡片内。 */
@@ -738,16 +744,16 @@ static void render_temperature_setpoint(int32_t display_target)
     char b[96];
     if(!s_view.temp.target_valid) {
         if(s_view.temp.valid) {
-            snprintf(b, sizeof(b), S_CURRENT_FMT, (long)(s_view.temp.pv_centi / 100),
+            snprintf(b, sizeof(b), S_CURRENT_SHORT, (long)(s_view.temp.pv_centi / 100),
                      (long)((s_view.temp.pv_centi % 100) / 10));
-            value(s_target, b);
+        value(s_target, b);
         } else {
-            value(s_target, S_CURRENT_UNKNOWN);
+            value(s_target, S_CURRENT_SHORT_UNKNOWN);
         }
         value(s_sv, S_UNSET);
         return;
     }
-    snprintf(b, sizeof(b), S_TARGET_FMT, (long)(display_target / 100),
+    snprintf(b, sizeof(b), S_TARGET_SHORT, (long)(display_target / 100),
              (long)((display_target % 100) / 10));
     value(s_target, b);
     snprintf(b, sizeof(b), S_SET_FMT, (long)(display_target / 100),
@@ -773,9 +779,27 @@ static void render_temperature_widget(void)
                  (long)(abs_t / 10), (long)(abs_t % 10));
     } else strcpy(number, "--.-");
     value(s_pv, number);
-    tint(s_pv, !s_view.temp.valid ? RED :
-         (ph == INC_COOL_REQUEST || ph == INC_COOLING) &&
-         !s_view.at_temperature ? ORANGE : GREEN);
+    {
+        lv_font_glyph_dsc_t glyph;
+        int32_t value_width = 0;
+        uint8_t i;
+
+        /* 按温度数值的实际字宽定位单位，保持“℃”与数字紧邻。 */
+        for(i = 0; number[i] != '\0'; ++i) {
+            if(lv_font_get_glyph_dsc(F28, &glyph, (uint32_t)(uint8_t)number[i],
+                                     (uint32_t)(uint8_t)number[i + 1])) {
+                value_width += glyph.adv_w;
+            }
+        }
+        lv_obj_set_pos(s_temp_unit, 8 + value_width + 2, TEMP_Y + 19);
+    }
+    {
+        uint32_t temp_color = !s_view.temp.valid ? RED :
+            (ph == INC_COOL_REQUEST || ph == INC_COOLING) &&
+            !s_view.at_temperature ? ORANGE : GREEN;
+        tint(s_pv, temp_color);
+        tint(s_temp_unit, temp_color);
+    }
     width = 0;
     if((ph == INC_COOL_REQUEST || ph == INC_COOLING || ph == INC_STORAGE) &&
        s_view.temp.valid && s_view.run.target_centi > 400) {
@@ -801,7 +825,9 @@ static void render_header_door_status(void)
     switch(s_view.door) {
     case MOTOR_OPEN: value(s_door, S_LID S_DOOR_OPEN); break;
     case MOTOR_CLOSED: value(s_door, S_LID S_DOOR_CLOSED); break;
-    case MOTOR_OPENING: case MOTOR_CLOSING: case MOTOR_INSTALLING:
+    case MOTOR_INSTALLING:
+        value(s_door, S_LID S_DOOR_INIT); break;
+    case MOTOR_OPENING: case MOTOR_CLOSING:
         value(s_door, S_LID S_DOOR_MOVING); break;
     case MOTOR_FAULT: value(s_door, S_LID S_DOOR_FAULT); break;
     default: value(s_door, S_LID "--"); break;
@@ -911,7 +937,7 @@ static void render_time_widget(void)
         width = (uint32_t)((uint64_t)(s_view.run.run_duration_ms - s_view.run.remaining_ms) *
                            BAR_W / s_view.run.run_duration_ms);
     else if(ph > INC_RUNNING) width = BAR_W;
-    bar(NULL, s_time_bar, width, GREEN);
+    (void)width; /* 孵育区改用文字表达进度，不绘制底部进度框。 */
 
 }
 
@@ -937,6 +963,19 @@ static void render_delay_widget(void)
         strcpy(number, "N");   /* N 表示未设置自动降温延迟 */
     }
     value(s_delay, number);
+    {
+        lv_font_glyph_dsc_t glyph;
+        int32_t value_width = 0;
+        uint8_t i;
+        /* 按延迟数字实际字宽定位秒单位，保持与主数值紧邻。 */
+        for(i = 0; number[i] != '\0'; ++i) {
+            if(lv_font_get_glyph_dsc(F28, &glyph, (uint32_t)(uint8_t)number[i],
+                                     (uint32_t)(uint8_t)number[i + 1])) {
+                value_width += glyph.adv_w;
+            }
+        }
+        lv_obj_set_pos(s_delay_unit, 8 + value_width + 2, DELAY_Y + 20);
+    }
 
     if(s_edit && s_focus_index == FOCUS_DELAY)
         snprintf(b, sizeof(b), "%lu s", (unsigned long)s_draft);
@@ -958,7 +997,7 @@ static void render_delay_widget(void)
         value(s_delay_state, msg);
         tint(s_delay_state, RED);
     } else if(s_edit && s_focus_index == FOCUS_DELAY) {
-        value(s_delay_state, S_EDITABLE);
+        value(s_delay_state, "");
         tint(s_delay_state, YELLOW);
     } else if(ph == INC_DELAY) {
         snprintf(b, sizeof(b), S_AFTER, (unsigned long)((s_view.run.delay_remaining_ms + 999u) / 1000u));
@@ -971,10 +1010,10 @@ static void render_delay_widget(void)
         value(s_delay_state, S_KEEP);
         tint(s_delay_state, GREEN);
     } else if(ph == INC_RUNNING) {
-        value(s_delay_state, S_EDITABLE);
+        value(s_delay_state, "");
         tint(s_delay_state, MUTED);
     } else if(ph == INC_IDLE) {
-        value(s_delay_state, S_EDITABLE);
+        value(s_delay_state, "");
         tint(s_delay_state, MUTED);
     } else {
         value(s_delay_state, S_DONE);
@@ -987,8 +1026,7 @@ static void render_delay_widget(void)
                            BAR_W / s_view.run.run_delay_ms);
     else if(ph == INC_COOL_REQUEST || ph == INC_COOLING || ph == INC_STORAGE)
         width = BAR_W;
-    bar(NULL, s_delay_bar, width,
-        (ph == INC_COOL_REQUEST || ph == INC_COOLING || ph == INC_STORAGE) ? GREEN : YELLOW);
+    (void)width; /* 延迟/保存阶段由状态文字表达，不再绘制底部进度框。 */
 
 }
 
@@ -1084,16 +1122,16 @@ static void refresh_edit_cursor(void)
         if(s_focus_index == FOCUS_TEMPERATURE) {
             snprintf(cursor, sizeof(cursor), "%02ld.%ld", (long)(s_draft / 100), (long)((s_draft % 100) / 10));
             if(ci == 2) ++ci;       /* 跳过小数点，光标落在实际数字上 */
-            y = 70;
+            y = TEMP_Y + 49;
         } else if(s_focus_index == FOCUS_TIME) {
             snprintf(cursor, sizeof(cursor), "%02lu.%lu", (unsigned long)(s_draft / 60),
                      (unsigned long)((s_draft % 60) / 6));
             if(ci == 2) ++ci;
-            y = 132;
+            y = TIME_Y + 49;
         } else {
             snprintf(cursor, sizeof(cursor), "%03lu", (unsigned long)s_draft);
             cf = F28;
-            y = 204;
+            y = DELAY_Y + 49;
         }
         x = digit_x(cf, cursor, ci);
         if(lv_font_get_glyph_dsc(cf, &d, cursor[ci], cursor[ci + 1]))
