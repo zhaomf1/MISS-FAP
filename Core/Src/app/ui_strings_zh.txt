@@ -1,0 +1,48 @@
+# UI中文文案源文件：请使用UTF-8编码；每行格式为 #define S_NAME "中文或格式字符串" /* 中文说明 */
+# 修改本文件后运行：python tools/generate_ui_strings.py Core/Src/app/ui_strings_zh.txt Core/Src/app/ui_strings_generated.h
+# 生成头文件只包含ASCII转义，避免ARMCC 5直接解析中文源码。
+
+#define S_LID                    "盖:"                         /* 顶部舱门状态前缀 */
+#define S_DOOR_CLOSED            "已关"                        /* 舱门已关闭 */
+#define S_DOOR_OPEN              "已开"                        /* 舱门已打开 */
+#define S_DOOR_MOVING            "动作中"                      /* 舱门电机动作中 */
+#define S_DOOR_INIT              "初始化中"                    /* 上电舱门初始化中 */
+#define S_DOOR_FAULT             "故障"                        /* 舱门故障 */
+#define S_HEAT                   "升温"                        /* 温度低于目标，正在升温 */
+#define S_COOL                   "降温"                        /* 温度高于目标，正在降温 */
+#define S_HOLD                   "恒温中"                      /* 恒温中 */
+#define S_REACH                  "达标"                        /* 已达到目标温度 */
+#define S_BUZZ                   "蜂鸣"                        /* 蜂鸣器正在提示 */
+#define S_ALARM                  "报警"                        /* 报警状态 */
+#define S_SAVE                   "保存"                        /* 保存阶段 */
+#define S_TEMP_TITLE             "温度 TEMP"                   /* 实时温度区标题 */
+#define S_TARGET_TITLE           "目标 TEMP"                   /* 目标温度标题 */
+#define S_TARGET_FMT             "目标 %ld.%ld ℃"              /* 目标温度格式：整数、小数 */
+#define S_TIME_TITLE             "孵育时间 TIME"               /* 孵育时间区标题 */
+#define S_WAIT                   "待开始"                      /* 等待用户开始 */
+#define S_DONE                   "已结束"                      /* 流程已结束 */
+#define S_PAUSED                 "已暂停"                      /* 计时已暂停 */
+#define S_REMAIN_MIN             "剩余 共 %lu.%lu min"         /* 分钟格式：剩余总时长 */
+#define S_REMAIN_H               "剩余 共 %lu.%lu h"           /* 小时格式：剩余总时长 */
+#define S_DELAY_TITLE            "延迟 4℃ 保存"               /* 延迟降温设置标题 */
+#define S_AFTER                  "%lu s 后降温"                /* N 秒后开始降温 */
+#define S_COOLING                "降温中"                      /* 自动降温进行中 */
+#define S_KEEP                   "保存中 直至取板"              /* 持续保存直到取板 */
+#define S_START                  "开始"                        /* 开始操作 */
+#define S_STARTING               "计时中"                      /* 正在计时/运行 */
+#define S_STOP                   "停止"                        /* 停止操作 */
+#define S_OPEN                   "开盖"                        /* 打开舱盖操作 */
+#define S_CLOSE                  "关盖"                        /* 关闭舱盖操作 */
+#define S_MUTE                   "消音"                        /* 消音操作 */
+#define S_NOT_BUZZ               "未蜂鸣"                      /* 当前没有蜂鸣提示 */
+#define S_SET_FMT                "设定 %ld.%ld"                /* 顶部设定温度格式 */
+#define S_CURRENT_FMT            "当前 %ld.%ld℃"              /* 尚未设定目标时显示实时温度 */
+#define S_CURRENT_UNKNOWN        "当前 --.-℃"                 /* 实时温度尚无有效读数 */
+#define S_TARGET_SHORT           "目标 %ld.%ld℃"              /* 温度框右下角目标温度简写 */
+#define S_CURRENT_SHORT          "当前 %ld.%ld℃"              /* 温度框右下角当前温度简写 */
+#define S_CURRENT_SHORT_UNKNOWN  "当前 --.-℃"                 /* 当前温度无有效读数时的简写 */
+#define S_UNSET                  "未设定"                      /* 尚未设置目标温度 */
+#define S_COMM_ERROR             "通讯异常"                    /* 温度通信异常 */
+#define S_TEMP_ERROR             "温控异常"                    /* 温控或写入异常 */
+#define S_LID_ERROR              "开盖异常"                    /* 舱门异常 */
+#define S_SET_TEMP_MSG           "设定温度"                    /* 正在应用温度设定 */

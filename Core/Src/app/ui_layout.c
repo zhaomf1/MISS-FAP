@@ -2,6 +2,7 @@
 #include "key.h"
 #include "app_service.h"
 #include "lv_font_ui_font.h"
+#include "ui_strings_generated.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -11,54 +12,10 @@
  */
 
 /*
- * 界面文案以 UTF-8 字节转义写入 C 字符串；转义不会在屏幕上显示为十六进制。
+ * 界面文案以 UTF-8 字节转义写入 C 字符串，兼容 ARMCC 5 源码编码处理。
  * 这样可避开 Keil ARMCC 5 在不同 Windows 代码页下解析中文源码字符串不一致的问题。
  */
-#define S_LID          "\xE7\x9B\x96:"                                      /* 顶部舱门状态前缀 */
-#define S_DOOR_CLOSED  "\xE5\xB7\xB2\xE5\x85\xB3"                        /* 舱门已关闭 */
-#define S_DOOR_OPEN    "\xE5\xB7\xB2\xE5\xBC\x80"                        /* 舱门已打开 */
-#define S_DOOR_MOVING  "\xE5\x8A\xA8\xE4\xBD\x9C\xE4\xB8\xAD"  /* 舱门电机动作中 */
-#define S_DOOR_INIT    "\xE5\x88\x9D\xE5\xA7\x8B\xE5\x8C\x96\xE4\xB8\xAD" /* 上电舱门初始化中 */
-#define S_DOOR_FAULT   "\xE6\x95\x85\xE9\x9A\x9C"                        /* 舱门故障 */
-#define S_HEAT         "\xE5\x8D\x87\xE6\xB8\xA9"                        /* 温度低于目标，正在升温 */
-#define S_COOL         "\xE9\x99\x8D\xE6\xB8\xA9"                        /* 温度高于目标，正在降温 */
-#define S_HOLD         "\xE6\x81\x92\xE6\xB8\xA9\xE4\xB8\xAD"  /* 恒温中 */
-#define S_REACH        "\xE8\xBE\xBE\xE6\xA0\x87"                        /* 已达到目标温度 */
-#define S_BUZZ         "\xE8\x9C\x82\xE9\xB8\xA3"                        /* 蜂鸣器正在提示 */
-#define S_ALARM        "\xE6\x8A\xA5\xE8\xAD\xA6"                        /* 报警状态 */
-#define S_SAVE         "\xE4\xBF\x9D\xE5\xAD\x98"                        /* 保存阶段 */
-#define S_TEMP_TITLE   "\xE6\xB8\xA9\xE5\xBA\xA6 TEMP"                  /* 实时温度区标题 */
-#define S_TARGET_TITLE "\xE7\x9B\xAE\xE6\xA0\x87 TEMP"                  /* 目标温度标题 */
-#define S_TARGET_FMT   "\xE7\x9B\xAE\xE6\xA0\x87 %ld.%ld \xE2\x84\x83" /* 目标温度格式：整数、小数 */
-#define S_TIME_TITLE   "\xE5\xAD\xB5\xE8\x82\xB2\xE6\x97\xB6\xE9\x97\xB4 TIME" /* 孵育时间区标题 */
-#define S_WAIT         "\xE5\xBE\x85\xE5\xBC\x80\xE5\xA7\x8B"  /* 等待用户开始 */
-#define S_DONE         "\xE5\xB7\xB2\xE7\xBB\x93\xE6\x9D\x9F"  /* 流程已结束 */
-#define S_PAUSED       "\xE5\xB7\xB2\xE6\x9A\x82\xE5\x81\x9C"  /* 计时已暂停 */
-#define S_REMAIN_MIN   "\xE5\x89\xA9\xE4\xBD\x99 \xE5\x85\xB1 %lu.%lu min" /* 分钟格式：剩余总时长 */
-#define S_REMAIN_H     "\xE5\x89\xA9\xE4\xBD\x99 \xE5\x85\xB1 %lu.%lu h"   /* 小时格式：剩余总时长 */
-#define S_DELAY_TITLE  "\xE5\xBB\xB6\xE8\xBF\x9F 4\xE2\x84\x83 \xE4\xBF\x9D\xE5\xAD\x98" /* 延迟降温设置标题 */
-#define S_AFTER        "%lu s \xE5\x90\x8E\xE9\x99\x8D\xE6\xB8\xA9" /* N 秒后开始降温 */
-#define S_COOLING      "\xE9\x99\x8D\xE6\xB8\xA9\xE4\xB8\xAD"  /* 自动降温进行中 */
-#define S_KEEP         "\xE4\xBF\x9D\xE5\xAD\x98\xE4\xB8\xAD \xE7\x9B\xB4\xE8\x87\xB3\xE5\x8F\x96\xE6\x9D\xBF" /* 持续保存直到取板 */
-#define S_START        "\xE5\xBC\x80\xE5\xA7\x8B"                        /* 开始操作 */
-#define S_STARTING     "\xE8\xAE\xA1\xE6\x97\xB6\xE4\xB8\xAD"  /* 正在计时/运行 */
-#define S_STOP         "\xE5\x81\x9C\xE6\xAD\xA2"                        /* 停止操作 */
-#define S_OPEN         "\xE5\xBC\x80\xE7\x9B\x96"                        /* 打开舱盖操作 */
-#define S_CLOSE        "\xE5\x85\xB3\xE7\x9B\x96"                        /* 关闭舱盖操作 */
-#define S_MUTE         "\xE6\xB6\x88\xE9\x9F\xB3"                        /* 消音操作 */
-#define S_NOT_BUZZ     "\xE6\x9C\xAA\xE8\x9C\x82\xE9\xB8\xA3"  /* 当前没有蜂鸣提示 */
-#define S_SET_FMT      "\xE8\xAE\xBE\xE5\xAE\x9A %ld.%ld"          /* 顶部设定温度格式 */
-#define S_CURRENT_FMT  "\xE5\xBD\x93\xE5\x89\x8D %ld.%ld\xE2\x84\x83" /* 尚未设定目标时显示实时温度 */
-#define S_CURRENT_UNKNOWN "\xE5\xBD\x93\xE5\x89\x8D --.-\xE2\x84\x83" /* 实时温度尚无有效读数 */
-#define S_TARGET_SHORT "\xE7\x9B\xAE\xE6\xA0\x87 %ld.%ld\xE2\x84\x83" /* 温度框右下角目标温度简写 */
-#define S_CURRENT_SHORT "\xE5\xBD\x93\xE5\x89\x8D %ld.%ld\xE2\x84\x83" /* 温度框右下角当前温度简写 */
-#define S_CURRENT_SHORT_UNKNOWN "\xE5\xBD\x93\xE5\x89\x8D --.-\xE2\x84\x83" /* 当前温度无有效读数时的简写 */
-#define S_UNSET        "\xE6\x9C\xAA\xE8\xAE\xBE\xE5\xAE\x9A" /* 尚未设置目标温度 */
-#define S_COMM_ERROR   "\xE9\x80\x9A\xE8\xAE\xAF\xE5\xBC\x82\xE5\xB8\xB8" /* 温度通信异常 */
-#define S_TEMP_ERROR   "\xE6\xB8\xA9\xE6\x8E\xA7\xE5\xBC\x82\xE5\xB8\xB8" /* 温控或写入异常 */
-#define S_LID_ERROR    "\xE5\xBC\x80\xE7\x9B\x96\xE5\xBC\x82\xE5\xB8\xB8" /* 舱门异常 */
-#define S_SET_TEMP_MSG "\xE8\xAE\xBE\xE5\xAE\x9A\xE6\xB8\xA9\xE5\xBA\xA6" /* 正在应用温度设定 */
-
+/* UI文案从 ui_strings_zh.txt 生成，修改文案后请重新生成头文件。 */
 /* 保持字库位图数据为只读；小型描述符副本为字库子集缺少的空格和标点提供拉丁字母回退。 */
 static lv_font_t s_font12, s_font14, s_font28;
 #define F12 (&s_font12)
@@ -110,6 +67,7 @@ static lv_font_t s_font12, s_font14, s_font28;
 #define DELAY_Y  (TIME_Y + LEFT_ROW_H)
 #define DELAY_H  LEFT_ROW_H
 #define BAR_W    184
+#define BAR_H    4
 
 /* 焦点编号与屏幕控件一一对应，输入导航和状态刷新共用此定义。 */
 typedef enum {
@@ -137,14 +95,19 @@ static lv_obj_t *s_pv, *s_target, *s_time, *s_time_aux, *s_delay;
 static lv_obj_t *s_temp_unit;
 static lv_obj_t *s_delay_unit;
 static lv_obj_t *s_delay_set, *s_delay_state;
+/* 三栏进度条分别显示温度、孵育时间和延迟降温阶段进度。 */
+static lv_obj_t *s_temp_bar_track, *s_temp_bar_fill;
+static lv_obj_t *s_time_bar_track, *s_time_bar_fill;
+static lv_obj_t *s_delay_bar_track, *s_delay_bar_fill;
 static lv_obj_t *s_alarm, *s_door, *s_phase, *s_sv;
 static lv_obj_t *s_kt[ACTION_COUNT], *s_kn[ACTION_COUNT];       /* 四个操作卡片的主文字和辅助文字 */
 static lv_obj_t *s_ic_play[3], *s_ic_stop, *s_ic_door, *s_ic_mute[3];
 static lv_obj_t *s_ic_up[3], *s_ic_down[3], *s_ic_dot;
-static lv_obj_t *s_temp_bar;
 static lv_obj_t *s_focus, *s_digit;
 static uint8_t s_ok, s_focus_index, s_edit, s_digit_index;
 static int32_t s_draft;
+/* 默认参数不算用户已设置；用户确认设置后，待机时也显示对应进度轨道。 */
+static uint8_t s_time_configured, s_delay_configured;
 static app_snapshot_t s_view;
 static uint32_t s_refresh_ms;
 static uint32_t s_repeat_key = KEY_COUNT, s_hold_ms, s_repeat_ms;
@@ -242,17 +205,24 @@ static void tint(lv_obj_t *o, uint32_t c)
     if(o) lv_obj_set_style_text_color(o, lv_color_hex(c), 0);
 }
 
-/* 更新进度条填充宽度；宽度为 0 时隐藏填充对象。 */
-static void bar(lv_obj_t *track, lv_obj_t *fill, uint32_t width, uint32_t color)
+/* 更新进度条的显示状态和填充宽度；未配置且未运行时轨道与填充均隐藏。 */
+static void bar(lv_obj_t *track, lv_obj_t *fill, int visible,
+                uint32_t width, uint32_t color)
 {
-    if(!fill) return;
+    if(!track || !fill) return;
+    if(!visible) {
+        lv_obj_add_flag(track, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(fill, LV_OBJ_FLAG_HIDDEN);
+        return;
+    }
+    lv_obj_remove_flag(track, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_width(fill, (int32_t)width);
+    lv_obj_set_style_bg_color(fill, lv_color_hex(color), 0);
     if(!width) {
         lv_obj_add_flag(fill, LV_OBJ_FLAG_HIDDEN);
         return;
     }
     lv_obj_remove_flag(fill, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_set_width(fill, (int32_t)width);
-    lv_obj_set_style_bg_color(fill, lv_color_hex(color), 0);
 }
 
 /* 小于一小时显示为 12:36，大于等于一小时显示为 2:05:00。 */
@@ -290,10 +260,11 @@ static int allowed(uint8_t i)
 static void action_icon_visibility(void)
 {
     uint8_t i;
-    int show_start = s_focus_index == FOCUS_START && allowed(FOCUS_START);
-    int show_stop = s_focus_index == FOCUS_STOP && allowed(FOCUS_STOP);
-    int show_door = s_focus_index == FOCUS_DOOR && allowed(FOCUS_DOOR);
-    int show_mute = s_focus_index == FOCUS_MUTE && allowed(FOCUS_MUTE);
+    /* 焦点图标表示当前选中位置；控件是否可执行仍由 allowed() 决定。 */
+    int show_start = s_focus_index == FOCUS_START;
+    int show_stop = s_focus_index == FOCUS_STOP;
+    int show_door = s_focus_index == FOCUS_DOOR;
+    int show_mute = s_focus_index == FOCUS_MUTE;
 
     for(i = 0; i < 3; ++i) {
         if(show_start) lv_obj_remove_flag(s_ic_play[i], LV_OBJ_FLAG_HIDDEN);
@@ -367,14 +338,27 @@ static void key_icons(uint32_t start_c, uint32_t stop_c,
     if(s_ic_door) lv_obj_set_style_border_color(s_ic_door, lv_color_hex(door_c), 0);
 }
 
-/* 创建左侧信息区、分隔线和三条进度条的底轨。 */
+/* 创建左侧信息区分隔线和右侧操作卡片。 */
 static void create_page_frame(lv_obj_t *screen)
 {
     rect(screen, 0, 0, SCREEN_WIDTH, HEADER_H, HEADER, 0);
     rect(screen, 0, HEADER_H - 1, SCREEN_WIDTH, 1, LINE, 0);
     rect(screen, LEFT_W, HEADER_H, 1, SCREEN_HEIGHT - HEADER_H, LINE, 0);
+    /* 温度栏与孵育栏之间的分隔线，位于两栏交界处。 */
     rect(screen, 0, TIME_Y - 1, LEFT_W, 1, LINE, 0);
     rect(screen, 0, DELAY_Y - 1, LEFT_W, 1, LINE, 0);
+
+    /* 三个进度条初始隐藏，配置完成或进入运行流程后再显示。 */
+    /* 进度条上移并加粗，和各栏分隔线/屏幕边缘留出间距。 */
+    s_temp_bar_track = rect(screen, 8, TEMP_Y + TEMP_H - 8, BAR_W, BAR_H, 0x34513E, 0);
+    s_temp_bar_fill = rect(screen, 8, TEMP_Y + TEMP_H - 8, 0, BAR_H, GREEN, 0);
+    s_time_bar_track = rect(screen, 8, TIME_Y + TIME_H - 8, BAR_W, BAR_H, 0x34513E, 0);
+    s_time_bar_fill = rect(screen, 8, TIME_Y + TIME_H - 8, 0, BAR_H, ORANGE, 0);
+    s_delay_bar_track = rect(screen, 8, DELAY_Y + DELAY_H - 8, BAR_W, BAR_H, 0x34513E, 0);
+    s_delay_bar_fill = rect(screen, 8, DELAY_Y + DELAY_H - 8, 0, BAR_H, BLUE, 0);
+    bar(s_temp_bar_track, s_temp_bar_fill, 0, 0, GREEN);
+    bar(s_time_bar_track, s_time_bar_fill, 0, 0, ORANGE);
+    bar(s_delay_bar_track, s_delay_bar_fill, 0, 0, BLUE);
 
     /* 右侧四个操作卡片按 2 列 2 行排列。 */
     rect(screen, ACTION_LEFT_X, ACTION_TOP_Y, ACTION_LEFT_W, ACTION_ROW_H, PANEL, 1);
@@ -382,8 +366,6 @@ static void create_page_frame(lv_obj_t *screen)
     rect(screen, ACTION_LEFT_X, ACTION_LOW_Y, ACTION_LEFT_W, ACTION_ROW_H, BG, 1);
     rect(screen, ACTION_RIGHT_X, ACTION_LOW_Y, ACTION_RIGHT_W, ACTION_ROW_H, PANEL_ALT, 1);
 
-    rect(screen, 8, TEMP_Y + TEMP_H - 6, BAR_W, 2, 0x34513E, 0);
-    s_temp_bar = rect(screen, 8, TEMP_Y + TEMP_H - 6, 0, 2, GREEN, 0);
 }
 
 /* 创建顶部状态栏：报警、舱门、运行阶段和当前设定温度。 */
@@ -398,29 +380,31 @@ static void create_header_area(lv_obj_t *screen)
 /* 创建实时温度和目标温度显示区域。 */
 static void create_temperature_area(lv_obj_t *screen)
 {
-    text(screen, S_TEMP_TITLE, 8, TEMP_Y + 3, 184, 14, F12, MUTED, LV_TEXT_ALIGN_LEFT);
-    s_pv = text(screen, "--.-", 8, TEMP_Y + 19, 112, 32, F28, GREEN, LV_TEXT_ALIGN_LEFT);
-    s_temp_unit = text(screen, "\xE2\x84\x83", 0, TEMP_Y + 19, 36, 32, F28, MUTED, LV_TEXT_ALIGN_LEFT);
+    text(screen, S_TEMP_TITLE, 8, TEMP_Y + 13, 184, 14, F12, MUTED, LV_TEXT_ALIGN_LEFT);
+    s_pv = text(screen, "--.-", 8, TEMP_Y + 29, 112, 32, F28, GREEN, LV_TEXT_ALIGN_LEFT);
+    s_temp_unit = text(screen, "\xE2\x84\x83", 0, TEMP_Y + 29, 36, 32, F28, MUTED, LV_TEXT_ALIGN_LEFT);
     /* 当前/目标提示靠右下角显示，避免占用温度主数值区域。 */
-    s_target = text(screen, "", 8, TEMP_Y + 51, 184, 14, F12, MUTED, LV_TEXT_ALIGN_RIGHT);
+    s_target = text(screen, "", 8, TEMP_Y + 51, 184, 12, F12, MUTED, LV_TEXT_ALIGN_RIGHT);
 }
 
 /* 创建孵育时间主数值和剩余时间/运行状态说明。 */
 static void create_timing_area(lv_obj_t *screen)
 {
-    text(screen, S_TIME_TITLE, 8, TIME_Y + 3, 184, 14, F12, MUTED, LV_TEXT_ALIGN_LEFT);
-    s_time = text(screen, "15.0 min", 8, TIME_Y + 19, 184, 31, F28, 0xD2ECDD, LV_TEXT_ALIGN_LEFT);
-    s_time_aux = text(screen, S_WAIT, 8, TIME_Y + 51, 184, 14, F12, MUTED, LV_TEXT_ALIGN_LEFT);
+    text(screen, S_TIME_TITLE, 8, TIME_Y + 13, 184, 14, F12, MUTED, LV_TEXT_ALIGN_LEFT);
+    s_time = text(screen, "15.0 min", 8, TIME_Y + 29, 184, 27, F28, 0xD2ECDD, LV_TEXT_ALIGN_LEFT);
+    /* 等待/暂停/剩余状态固定放在孵育栏右下角，与温度目标提示对齐。 */
+    s_time_aux = text(screen, S_WAIT, 8, TIME_Y + 50, 184, 12, F12, MUTED, LV_TEXT_ALIGN_RIGHT);
 }
 
 /* 创建自动降温延迟设置、倒计时和状态提示区域。 */
 static void create_delay_area(lv_obj_t *screen)
 {
-    text(screen, S_DELAY_TITLE, 8, DELAY_Y + 3, 124, 14, F12, MUTED, LV_TEXT_ALIGN_LEFT);
-    s_delay_set = text(screen, "", 140, DELAY_Y + 3, 52, 14, F12, MUTED, LV_TEXT_ALIGN_RIGHT);
-    s_delay = text(screen, "0", 8, DELAY_Y + 20, 60, 34, F28, YELLOW, LV_TEXT_ALIGN_LEFT);
-    s_delay_unit = text(screen, "s", 0, DELAY_Y + 20, 32, 34, F28, MUTED, LV_TEXT_ALIGN_LEFT);
-    s_delay_state = text(screen, "", 8, DELAY_Y + 54, 184, 14, F12, MUTED, LV_TEXT_ALIGN_LEFT);
+    text(screen, S_DELAY_TITLE, 8, DELAY_Y + 12, 124, 14, F12, MUTED, LV_TEXT_ALIGN_LEFT);
+    s_delay_set = text(screen, "", 140, DELAY_Y + 12, 52, 14, F12, MUTED, LV_TEXT_ALIGN_RIGHT);
+    s_delay = text(screen, "0", 8, DELAY_Y + 30, 60, 32, F28, YELLOW, LV_TEXT_ALIGN_LEFT);
+    s_delay_unit = text(screen, "s", 0, DELAY_Y + 30, 32, 32, F28, MUTED, LV_TEXT_ALIGN_LEFT);
+    /* 延迟阶段的小字状态靠右显示，避免与左侧大号秒数重叠。 */
+    s_delay_state = text(screen, "", 92, DELAY_Y + 52, 100, 12, F12, MUTED, LV_TEXT_ALIGN_RIGHT);
 }
 
 /* 创建阶段图标和右侧操作图标；四个操作图标各自位于对应卡片内。 */
@@ -474,6 +458,7 @@ void ui_layout_init(void)
     s_ok = 1;
     s_focus_index = FOCUS_TEMPERATURE;
     s_edit = 0; s_digit_index = 0;
+    s_time_configured = s_delay_configured = 0;
 
     lv_obj_clean(screen);
     lv_obj_remove_style_all(screen);
@@ -507,7 +492,7 @@ void ui_layout_init(void)
 /* 返回页面对象是否全部创建成功。 */
 int ui_layout_ready(void) { return s_ok; }
 
-/* 按方向键在可用焦点之间循环导航，跳过当前不可用项。 */
+/* 按方向映射移动焦点；不可操作的可见控件也保留稳定的焦点位置。 */
 static void nav(uint32_t key)
 {
     static const uint8_t right[FOCUS_COUNT] = {
@@ -528,32 +513,9 @@ static void nav(uint32_t key)
     };
     const uint8_t *map = key == KEY_RIGHT ? right : key == KEY_LEFT ? left :
                          key == KEY_UP ? up : down;
-    uint8_t next = map[s_focus_index];
-    uint8_t visited[FOCUS_COUNT] = {0};
-    uint8_t steps;
-
-    /* 几何导航表可能在不可用控件间形成闭环，记录访问项后再做顺序兜底。 */
-    for(steps = 0; steps < FOCUS_COUNT && !allowed(next) && !visited[next]; ++steps) {
-        visited[next] = 1;
-        next = map[next];
-    }
-    if(!allowed(next) || next == s_focus_index) {
-        int direction = (key == KEY_RIGHT || key == KEY_DOWN) ? 1 : -1;
-        for(steps = 1; steps <= FOCUS_COUNT; ++steps) {
-            int candidate = (int)s_focus_index + direction * (int)steps;
-            while(candidate < 0) candidate += FOCUS_COUNT;
-            candidate %= FOCUS_COUNT;
-            if(allowed((uint8_t)candidate)) {
-                next = (uint8_t)candidate;
-                break;
-            }
-        }
-    }
-    if(allowed(next)) {
-        s_focus_index = next;
-        s_edit = 0;
-        focus_update();
-    }
+    s_focus_index = map[s_focus_index];
+    s_edit = 0;
+    focus_update();
 }
 
 /* 在当前数字草稿中移动编辑位，或按字段步长增减并限制上下界。 */
@@ -587,7 +549,10 @@ static void handle_time_key(uint32_t key)
 {
     static const int32_t steps[3] = {600, 60, 6};
     if(key == KEY_OK) {
-        if(app_service_submit(APP_SET_TIME, s_draft)) s_edit = 0;
+        if(app_service_submit(APP_SET_TIME, s_draft)) {
+            s_time_configured = 1;
+            s_edit = 0;
+        }
     } else {
         edit_numeric_digits(key, steps, (int32_t)APP_TIME_MIN_S, (int32_t)APP_TIME_MAX_S);
     }
@@ -598,7 +563,10 @@ static void handle_delay_key(uint32_t key)
 {
     static const int32_t steps[3] = {100, 10, 1};
     if(key == KEY_OK) {
-        if(app_service_submit(APP_SET_DELAY, s_draft)) s_edit = 0;
+        if(app_service_submit(APP_SET_DELAY, s_draft)) {
+            s_delay_configured = 1;
+            s_edit = 0;
+        }
     } else {
         edit_numeric_digits(key, steps, 0, APP_DELAY_MAX_S);
     }
@@ -607,7 +575,9 @@ static void handle_delay_key(uint32_t key)
 /* 进入温度编辑时，用当前目标温度初始化控件草稿。 */
 static void begin_temperature_edit(void)
 {
-    s_draft = s_view.run.target_centi;
+    /* 首次设定尚无目标值时，以当前有效温度作为编辑初值，避免从 00.0℃ 开始。 */
+    s_draft = s_view.temp.target_valid ? s_view.run.target_centi :
+              s_view.temp.valid ? s_view.temp.pv_centi : s_view.run.target_centi;
     s_digit_index = 2;
     s_edit = 1;
 }
@@ -662,6 +632,12 @@ static void activate_mute_control(void)
 /* 按当前焦点把确认键路由到具体控件的编辑入口或动作入口。 */
 static void activate_focused_control(void)
 {
+    /* 可聚焦不代表可执行；禁用时留在当前焦点，不提交应用命令。 */
+    if(!allowed(s_focus_index)) {
+        printf("[ui] focus=%s unavailable in current state\r\n",
+               ui_focus_name(s_focus_index));
+        return;
+    }
     switch(s_focus_index) {
     case FOCUS_TEMPERATURE: begin_temperature_edit(); break;
     case FOCUS_TIME: begin_time_edit(); break;
@@ -761,11 +737,12 @@ static void render_temperature_setpoint(int32_t display_target)
     value(s_sv, b);
 }
 
-/* 绘制温度控件的实时数值、颜色和降温进度条。 */
+/* 刷新实时温度、颜色和温度控制/降温进度条。 */
 static void render_temperature_widget(void)
 {
     char number[24];
-    uint32_t width;
+    uint32_t width = 0;
+    int show_bar;
     int32_t t;
     inc_phase_t ph = s_view.run.phase;
     /* 编辑温度时显示草稿值；正常显示时对有效采样四舍五入到 0.1℃。 */
@@ -791,7 +768,7 @@ static void render_temperature_widget(void)
                 value_width += glyph.adv_w;
             }
         }
-        lv_obj_set_pos(s_temp_unit, 8 + value_width + 2, TEMP_Y + 19);
+    lv_obj_set_pos(s_temp_unit, 8 + value_width + 2, TEMP_Y + 29);
     }
     {
         uint32_t temp_color = !s_view.temp.valid ? RED :
@@ -800,16 +777,31 @@ static void render_temperature_widget(void)
         tint(s_pv, temp_color);
         tint(s_temp_unit, temp_color);
     }
-    width = 0;
-    if((ph == INC_COOL_REQUEST || ph == INC_COOLING || ph == INC_STORAGE) &&
-       s_view.temp.valid && s_view.run.target_centi > 400) {
+    /* 普通温控用与目标温度的接近程度计算填充，避免当前温度高于目标时误显示满格。 */
+    if(s_view.temp.valid && s_view.temp.target_valid &&
+       ph != INC_COOL_REQUEST && ph != INC_COOLING && ph != INC_STORAGE) {
+        int32_t target = s_view.run.target_centi;
+        int32_t pv = s_view.temp.pv_centi;
+        int32_t span, error;
+        if(target < APP_TEMP_MIN_CENTI) target = APP_TEMP_MIN_CENTI;
+        if(target > APP_TEMP_MAX_CENTI) target = APP_TEMP_MAX_CENTI;
+        /* span 取目标值到允许温度范围较远一端的距离，目标达成时满格。 */
+        span = target > APP_TEMP_MAX_CENTI - target ? target : APP_TEMP_MAX_CENTI - target;
+        error = pv > target ? pv - target : target - pv;
+        if(span > 0 && error < span)
+            width = (uint32_t)((int64_t)(span - error) * BAR_W / span);
+    } else if((ph == INC_COOL_REQUEST || ph == INC_COOLING || ph == INC_STORAGE) &&
+              s_view.temp.valid && s_view.run.target_centi > 400) {
+        /* 自动降温时显示由孵育目标温度下降至 4℃ 的阶段进度。 */
         int32_t done = s_view.run.target_centi - s_view.temp.pv_centi;
         int32_t span = s_view.run.target_centi - 400;
         if(done < 0) done = 0;
         if(done > span) done = span;
         width = (uint32_t)((int64_t)done * BAR_W / span);
     }
-    bar(NULL, s_temp_bar, width, GREEN);
+    show_bar = s_view.temp.target_valid || incubator_model_active(&s_view.run);
+    bar(s_temp_bar_track, s_temp_bar_fill, show_bar, width,
+        (ph == INC_COOL_REQUEST || ph == INC_COOLING) ? BLUE : GREEN);
 }
 
 /* 报警时点亮顶部 ALM 标记，正常状态下使用弱化颜色。 */
@@ -892,11 +884,12 @@ static void render_phase_indicator(int32_t display_target)
     icon_state(heat, cool, phase_col);
 }
 
-/* 刷新孵育时长、剩余时间和运行进度；报警时不显示不可信的倒计时。 */
+/* 刷新孵育时长、剩余时间及孵育计时进度；报警时不显示不可信的倒计时。 */
 static void render_time_widget(void)
 {
     char b[96], number[24];
-    uint32_t width, total, remain;
+    uint32_t width = 0, total, remain;
+    int show_bar;
     inc_phase_t ph = s_view.run.phase;
     /* 空闲显示设定时长，运行显示剩余倒计时，报警时隐藏不可信数值。 */
     total = s_view.run.time_s;
@@ -932,20 +925,23 @@ static void render_time_widget(void)
         value(s_time_aux, s_view.run.paused ? S_PAUSED : S_DONE);
     }
 
-    width = 0;
-    if(ph == INC_RUNNING && s_view.run.run_duration_ms)
-        width = (uint32_t)((uint64_t)(s_view.run.run_duration_ms - s_view.run.remaining_ms) *
-                           BAR_W / s_view.run.run_duration_ms);
+    if(ph == INC_RUNNING && s_view.run.run_duration_ms) {
+        uint32_t elapsed = s_view.run.run_duration_ms > s_view.run.remaining_ms ?
+                           s_view.run.run_duration_ms - s_view.run.remaining_ms : 0;
+        width = (uint32_t)((uint64_t)elapsed * BAR_W / s_view.run.run_duration_ms);
+    }
     else if(ph > INC_RUNNING) width = BAR_W;
-    (void)width; /* 孵育区改用文字表达进度，不绘制底部进度框。 */
-
+    show_bar = s_time_configured || incubator_model_active(&s_view.run);
+    bar(s_time_bar_track, s_time_bar_fill, show_bar, width,
+        ph == INC_RUNNING ? ORANGE : GREEN);
 }
 
-/* 刷新自动降温延迟、提示文字和延迟/降温进度条。 */
+/* 刷新自动降温延迟、提示文字及延迟/保存进度条。 */
 static void render_delay_widget(void)
 {
     char b[96], number[24];
-    uint32_t width;
+    uint32_t width = 0;
+    int show_bar;
     inc_phase_t ph = s_view.run.phase;
     /* 延迟阶段显示剩余秒数，降温阶段显示 0，未配置时用 N 表示关闭。 */
     if(s_edit && s_focus_index == FOCUS_DELAY) {
@@ -974,7 +970,7 @@ static void render_delay_widget(void)
                 value_width += glyph.adv_w;
             }
         }
-        lv_obj_set_pos(s_delay_unit, 8 + value_width + 2, DELAY_Y + 20);
+        lv_obj_set_pos(s_delay_unit, 8 + value_width + 2, DELAY_Y + 30);
     }
 
     if(s_edit && s_focus_index == FOCUS_DELAY)
@@ -1020,14 +1016,16 @@ static void render_delay_widget(void)
         tint(s_delay_state, MUTED);
     }
 
-    width = 0;
-    if(ph == INC_DELAY && s_view.run.run_delay_ms)
-        width = (uint32_t)((uint64_t)(s_view.run.run_delay_ms - s_view.run.delay_remaining_ms) *
-                           BAR_W / s_view.run.run_delay_ms);
+    if(ph == INC_DELAY && s_view.run.run_delay_ms) {
+        uint32_t elapsed = s_view.run.run_delay_ms > s_view.run.delay_remaining_ms ?
+                           s_view.run.run_delay_ms - s_view.run.delay_remaining_ms : 0;
+        width = (uint32_t)((uint64_t)elapsed * BAR_W / s_view.run.run_delay_ms);
+    }
     else if(ph == INC_COOL_REQUEST || ph == INC_COOLING || ph == INC_STORAGE)
         width = BAR_W;
-    (void)width; /* 延迟/保存阶段由状态文字表达，不再绘制底部进度框。 */
-
+    show_bar = s_delay_configured || incubator_model_active(&s_view.run);
+    bar(s_delay_bar_track, s_delay_bar_fill, show_bar, width,
+        (ph == INC_DELAY) ? ORANGE : BLUE);
 }
 
 /* 按运行阶段绘制开始卡片的文案和可用状态。 */
@@ -1122,16 +1120,16 @@ static void refresh_edit_cursor(void)
         if(s_focus_index == FOCUS_TEMPERATURE) {
             snprintf(cursor, sizeof(cursor), "%02ld.%ld", (long)(s_draft / 100), (long)((s_draft % 100) / 10));
             if(ci == 2) ++ci;       /* 跳过小数点，光标落在实际数字上 */
-            y = TEMP_Y + 49;
+            y = TEMP_Y + 58;
         } else if(s_focus_index == FOCUS_TIME) {
             snprintf(cursor, sizeof(cursor), "%02lu.%lu", (unsigned long)(s_draft / 60),
                      (unsigned long)((s_draft % 60) / 6));
             if(ci == 2) ++ci;
-            y = TIME_Y + 49;
+            y = TIME_Y + 58;
         } else {
             snprintf(cursor, sizeof(cursor), "%03lu", (unsigned long)s_draft);
             cf = F28;
-            y = DELAY_Y + 49;
+            y = DELAY_Y + 59;
         }
         x = digit_x(cf, cursor, ci);
         if(lv_font_get_glyph_dsc(cf, &d, cursor[ci], cursor[ci + 1]))
@@ -1161,16 +1159,9 @@ void ui_layout_process(void)
 
     app_service_snapshot(&s_view);
 
-    /* 状态变化后，若当前焦点已不可用，自动跳转到第一个可用控件。 */
-    if(!allowed(s_focus_index)) {
-        uint8_t i;
+    /* 控件因状态变化变为禁用时，只退出编辑；焦点仍留在原位置。 */
+    if(s_edit && !allowed(s_focus_index)) {
         s_edit = 0;
-        /* 当前控件因运行状态变为禁用时，优先落到后续最近的可用控件。
-         * 例如开始后从 START 顺移到 STOP，而不是跳回左侧第一个字段。 */
-        for(i = 1; i <= FOCUS_COUNT; ++i) {
-            uint8_t candidate = (uint8_t)((s_focus_index + i) % FOCUS_COUNT);
-            if(allowed(candidate)) { s_focus_index = candidate; break; }
-        }
         focus_update();
     }
 

@@ -281,5 +281,6 @@ mini_evol\ui_layout.o: ../Core/Inc/app/temp_service.h
 mini_evol\ui_layout.o: ../Core/Inc/app/motor.h
 mini_evol\ui_layout.o: ../Core/Src/font/lv_font_ui_font.h
 mini_evol\ui_layout.o: ../Middleware/LVGL/lvgl.h
+mini_evol\ui_layout.o: ../Core/Src/app/ui_strings_generated.h
 mini_evol\ui_layout.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\stdio.h
 mini_evol\ui_layout.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\string.h

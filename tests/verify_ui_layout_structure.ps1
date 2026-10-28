@@ -65,11 +65,24 @@ if ($source -notmatch 'lv_obj_add_flag\([^;]*LV_OBJ_FLAG_HIDDEN' -or
 if ($source -notmatch 's_ic_stop\s*=\s*outline_rect\(screen,\s*ICON_STOP_X,\s*ICON_STOP_Y,\s*ACTION_ICON_SIZE') {
     throw 'Stop icon must remain a square outline.'
 }
-if ($source -notmatch 's_focus_index == FOCUS_START && allowed\(FOCUS_START\)' -or
-    $source -notmatch 's_focus_index == FOCUS_STOP && allowed\(FOCUS_STOP\)' -or
-    $source -notmatch 's_focus_index == FOCUS_DOOR && allowed\(FOCUS_DOOR\)' -or
-    $source -notmatch 's_focus_index == FOCUS_MUTE && allowed\(FOCUS_MUTE\)') {
-    throw 'Action icon visibility must follow its named, currently allowed focus.'
+if ($source -notmatch 'int show_start\s*=\s*s_focus_index == FOCUS_START;' -or
+    $source -notmatch 'int show_stop\s*=\s*s_focus_index == FOCUS_STOP;' -or
+    $source -notmatch 'int show_door\s*=\s*s_focus_index == FOCUS_DOOR;' -or
+    $source -notmatch 'int show_mute\s*=\s*s_focus_index == FOCUS_MUTE;') {
+    throw 'Focused action icons must remain visible even when their actions are unavailable.'
+}
+
+if ($source -notmatch 's_focus_index\s*=\s*map\[s_focus_index\];' -or
+    $source -match 'nav\(uint32_t key\)[\s\S]*?if\(allowed\(next\)\)') {
+    throw 'Directional navigation must not skip controls based on action availability.'
+}
+
+if ($source -notmatch 'if\(!allowed\(s_focus_index\)\)[\s\S]*?unavailable in current state') {
+    throw 'Unavailable controls must retain focus and reject OK activation.'
+}
+
+if ($source -notmatch 'if\(s_edit && !allowed\(s_focus_index\)\)[\s\S]*?s_edit = 0;') {
+    throw 'A control becoming unavailable must exit editing without forcing focus to another control.'
 }
 
 $commandBindings = @(
@@ -78,7 +91,7 @@ $commandBindings = @(
     'handle_delay_key[\s\S]*?app_service_submit\(APP_SET_DELAY',
     'activate_start_control[\s\S]*?app_service_submit\(APP_START',
     'activate_stop_control[\s\S]*?app_service_submit\(APP_STOP',
-    'activate_door_control[\s\S]*?app_service_submit\(s_view\.door == MOTOR_OPEN \? APP_CLOSE : APP_OPEN',
+    'activate_door_control[\s\S]*?app_service_submit\(command, 0\)',
     'activate_mute_control[\s\S]*?app_service_submit\(APP_MUTE'
 )
 foreach ($binding in $commandBindings) {

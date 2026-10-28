@@ -8,7 +8,7 @@
 
 /* 产品范围：温度 0.0~80.0℃，孵育时间 0.1~99.9 分钟，延迟 0~300 秒。 */
 #define APP_TEMP_MIN_CENTI 0
-#define APP_TEMP_MAX_CENTI 8000
+#define APP_TEMP_MAX_CENTI 10000
 
 #define APP_TIME_MIN_S     6u
 #define APP_TIME_MAX_S     5994u
