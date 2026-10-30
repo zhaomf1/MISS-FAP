@@ -46,3 +46,6 @@
 #define S_TEMP_ERROR             "温控异常"                    /* 温控或写入异常 */
 #define S_LID_ERROR              "开盖异常"                    /* 舱门异常 */
 #define S_SET_TEMP_MSG           "设定温度"                    /* 正在应用温度设定 */
+
+#define S_COMPLETED "已完成" /* incubation completed */
+#define S_TIME_DONE_TITLE "孵育 DONE" /* completed title */

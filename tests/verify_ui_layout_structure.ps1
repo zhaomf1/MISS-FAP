@@ -1,4 +1,4 @@
-$sourcePath = Join-Path $PSScriptRoot '..\Core\Src\app\ui_layout.c'
+﻿$sourcePath = Join-Path $PSScriptRoot '..\Core\Src\app\ui_layout.c'
 $source = Get-Content -Raw -Encoding utf8 $sourcePath
 
 $required = @(
@@ -57,19 +57,8 @@ for ($i = 0; $i -lt $names.Count; $i++) {
     }
 }
 
-if ($source -notmatch 'lv_obj_add_flag\([^;]*LV_OBJ_FLAG_HIDDEN' -or
-    $source -notmatch 'lv_obj_remove_flag\([^;]*LV_OBJ_FLAG_HIDDEN') {
-    throw 'Action icons must support focus-based visibility.'
-}
-
-if ($source -notmatch 's_ic_stop\s*=\s*outline_rect\(screen,\s*ICON_STOP_X,\s*ICON_STOP_Y,\s*ACTION_ICON_SIZE') {
-    throw 'Stop icon must remain a square outline.'
-}
-if ($source -notmatch 'int show_start\s*=\s*s_focus_index == FOCUS_START;' -or
-    $source -notmatch 'int show_stop\s*=\s*s_focus_index == FOCUS_STOP;' -or
-    $source -notmatch 'int show_door\s*=\s*s_focus_index == FOCUS_DOOR;' -or
-    $source -notmatch 'int show_mute\s*=\s*s_focus_index == FOCUS_MUTE;') {
-    throw 'Focused action icons must remain visible even when their actions are unavailable.'
+if ($source -match 'focused_icon_color' -or $source -match 's_ic_dot') {
+    throw 'Focus must not recolor icons; header status dot must be removed.'
 }
 
 if ($source -notmatch 's_focus_index\s*=\s*map\[s_focus_index\];' -or

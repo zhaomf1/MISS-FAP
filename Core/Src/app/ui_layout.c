@@ -17,10 +17,11 @@
  */
 /* UI文案从 ui_strings_zh.txt 生成，修改文案后请重新生成头文件。 */
 /* 保持字库位图数据为只读；小型描述符副本为字库子集缺少的空格和标点提供拉丁字母回退。 */
-static lv_font_t s_font12, s_font14, s_font28;
+static lv_font_t s_font12, s_font14, s_font28, s_font32;
 #define F12 (&s_font12)
 #define F14 (&s_font14)
 #define F28 (&s_font28)
+#define F32 (&s_font32)
 
 /* 颜色格式为 RGB888（0xRRGGBB）；调高各通道数值会使颜色更亮。 */
 #define BG        0x193323 /* 页面主背景及左下操作卡片底色 */
@@ -91,6 +92,7 @@ typedef enum {
 } ui_action_t;
 
 /* UI 只维护控件句柄和编辑状态，不在界面线程执行阻塞串口事务。 */
+static lv_obj_t *s_time_title;
 static lv_obj_t *s_pv, *s_target, *s_time, *s_time_aux, *s_delay;
 static lv_obj_t *s_temp_unit;
 static lv_obj_t *s_delay_unit;
@@ -101,13 +103,16 @@ static lv_obj_t *s_time_bar_track, *s_time_bar_fill;
 static lv_obj_t *s_delay_bar_track, *s_delay_bar_fill;
 static lv_obj_t *s_alarm, *s_door, *s_phase, *s_sv;
 static lv_obj_t *s_kt[ACTION_COUNT], *s_kn[ACTION_COUNT];       /* 四个操作卡片的主文字和辅助文字 */
-static lv_obj_t *s_ic_play[3], *s_ic_stop, *s_ic_door, *s_ic_mute[3];
-static lv_obj_t *s_ic_up[3], *s_ic_down[3], *s_ic_dot;
+static lv_obj_t *s_ic_start, *s_ic_clock, *s_ic_stop, *s_ic_door, *s_ic_mute;
+static lv_obj_t *s_ic_up[3], *s_ic_down[3];
 static lv_obj_t *s_focus, *s_digit;
 static uint8_t s_ok, s_focus_index, s_edit, s_digit_index;
 static int32_t s_draft;
 /* 默认参数不算用户已设置；用户确认设置后，待机时也显示对应进度轨道。 */
 static uint8_t s_time_configured, s_delay_configured;
+/* 确认温度设定时的温度和目标值，用于显示本次调温进度。 */
+static int32_t s_temp_progress_start_centi, s_temp_progress_target_centi;
+static uint8_t s_temp_progress_valid, s_temp_progress_waiting;
 static app_snapshot_t s_view;
 static uint32_t s_refresh_ms;
 static uint32_t s_repeat_key = KEY_COUNT, s_hold_ms, s_repeat_ms;
@@ -148,25 +153,6 @@ static lv_obj_t *rect(lv_obj_t *p, int x, int y, int w, int h,
     lv_obj_set_style_bg_opa(o, LV_OPA_COVER, 0);
     lv_obj_set_style_border_color(o, lv_color_hex(LINE), 0);
     lv_obj_set_style_border_width(o, border, 0);
-    lv_obj_set_style_pad_all(o, 0, 0);
-    lv_obj_clear_flag(o, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_clear_flag(o, LV_OBJ_FLAG_CLICKABLE);
-    return o;
-}
-
-/* 创建只有边框的图标；透明填充可以避免正方形停止图标与操作区域背景混成一块。 */
-static lv_obj_t *outline_rect(lv_obj_t *p, int x, int y, int size,
-                              uint32_t color, int border)
-{
-    lv_obj_t *o = lv_obj_create(p);
-    if(!o) { s_ok = 0; return NULL; }
-    lv_obj_remove_style_all(o);
-    lv_obj_set_pos(o, x, y);
-    lv_obj_set_size(o, size, size);
-    lv_obj_set_style_bg_opa(o, LV_OPA_TRANSP, 0);
-    lv_obj_set_style_border_color(o, lv_color_hex(color), 0);
-    lv_obj_set_style_border_width(o, border, 0);
-    lv_obj_set_style_radius(o, 0, 0);
     lv_obj_set_style_pad_all(o, 0, 0);
     lv_obj_clear_flag(o, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_clear_flag(o, LV_OBJ_FLAG_CLICKABLE);
@@ -256,26 +242,18 @@ static int allowed(uint8_t i)
     return 0;
 }
 
-/* 图标只在对应操作焦点有效时显示，避免四个符号同时挤在卡片交界处。 */
+/* 四个操作图标始终显示；焦点框和图标颜色共同指示当前选择项。 */
 static void action_icon_visibility(void)
 {
-    uint8_t i;
-    /* 焦点图标表示当前选中位置；控件是否可执行仍由 allowed() 决定。 */
-    int show_start = s_focus_index == FOCUS_START;
-    int show_stop = s_focus_index == FOCUS_STOP;
-    int show_door = s_focus_index == FOCUS_DOOR;
-    int show_mute = s_focus_index == FOCUS_MUTE;
-
-    for(i = 0; i < 3; ++i) {
-        if(show_start) lv_obj_remove_flag(s_ic_play[i], LV_OBJ_FLAG_HIDDEN);
-        else lv_obj_add_flag(s_ic_play[i], LV_OBJ_FLAG_HIDDEN);
-        if(show_mute) lv_obj_remove_flag(s_ic_mute[i], LV_OBJ_FLAG_HIDDEN);
-        else lv_obj_add_flag(s_ic_mute[i], LV_OBJ_FLAG_HIDDEN);
+    int timing = s_view.run.phase == INC_RUNNING || s_view.run.phase == INC_DELAY;
+    if(timing) {
+        lv_obj_add_flag(s_ic_start, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_remove_flag(s_ic_clock, LV_OBJ_FLAG_HIDDEN);
+    } else {
+        lv_obj_remove_flag(s_ic_start, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(s_ic_clock, LV_OBJ_FLAG_HIDDEN);
     }
-    if(show_stop) lv_obj_remove_flag(s_ic_stop, LV_OBJ_FLAG_HIDDEN);
-    else lv_obj_add_flag(s_ic_stop, LV_OBJ_FLAG_HIDDEN);
-    if(show_door) lv_obj_remove_flag(s_ic_door, LV_OBJ_FLAG_HIDDEN);
-    else lv_obj_add_flag(s_ic_door, LV_OBJ_FLAG_HIDDEN);
+
 }
 
 /* 根据具名焦点编号移动焦点框，并同步刷新操作图标显隐。 */
@@ -309,33 +287,27 @@ static void icon_state(int up, int down, uint32_t color)
         if(up || down) lv_obj_set_style_bg_color(s_ic_up[i], lv_color_hex(color), 0);
         if(up || down) lv_obj_set_style_bg_color(s_ic_down[i], lv_color_hex(color), 0);
     }
-    if(s_ic_dot) {
-        if(up || down) lv_obj_add_flag(s_ic_dot, LV_OBJ_FLAG_HIDDEN);
-        else {
-            lv_obj_remove_flag(s_ic_dot, LV_OBJ_FLAG_HIDDEN);
-            lv_obj_set_style_bg_color(s_ic_dot, lv_color_hex(color), 0);
-        }
-    }
+
 }
 
 /* 设置操作图标的颜色。 */
 static void key_icon_color(lv_obj_t *o, uint32_t c)
 {
-    if(o) lv_obj_set_style_bg_color(o, lv_color_hex(c), 0);
+    if(o) {
+        lv_obj_set_style_text_color(o, lv_color_hex(c), 0);
+        lv_obj_invalidate(o);
+    }
 }
 
 /* 统一更新开始、停止、舱门和消音图标的状态颜色。 */
 static void key_icons(uint32_t start_c, uint32_t stop_c,
                       uint32_t door_c, uint32_t mute_c)
 {
-    int i;
-    for(i = 0; i < 3; ++i) {
-        key_icon_color(s_ic_play[i], start_c);
-        key_icon_color(s_ic_mute[i], mute_c);
-    }
-    /* 停止图标是边框样式，因此更新边框颜色而不是背景填充色。 */
-    if(s_ic_stop) lv_obj_set_style_border_color(s_ic_stop, lv_color_hex(stop_c), 0);
-    if(s_ic_door) lv_obj_set_style_border_color(s_ic_door, lv_color_hex(door_c), 0);
+    key_icon_color(s_ic_start, start_c);
+    key_icon_color(s_ic_clock, start_c);
+    key_icon_color(s_ic_stop, stop_c);
+    key_icon_color(s_ic_door, door_c);
+    key_icon_color(s_ic_mute, mute_c);
 }
 
 /* 创建左侧信息区分隔线和右侧操作卡片。 */
@@ -380,20 +352,20 @@ static void create_header_area(lv_obj_t *screen)
 /* 创建实时温度和目标温度显示区域。 */
 static void create_temperature_area(lv_obj_t *screen)
 {
-    text(screen, S_TEMP_TITLE, 8, TEMP_Y + 13, 184, 14, F12, MUTED, LV_TEXT_ALIGN_LEFT);
+    text(screen, S_TEMP_TITLE, 8, TEMP_Y + 10, 184, 14, F12, MUTED, LV_TEXT_ALIGN_LEFT);
     s_pv = text(screen, "--.-", 8, TEMP_Y + 29, 112, 32, F28, GREEN, LV_TEXT_ALIGN_LEFT);
     s_temp_unit = text(screen, "\xE2\x84\x83", 0, TEMP_Y + 29, 36, 32, F28, MUTED, LV_TEXT_ALIGN_LEFT);
     /* 当前/目标提示靠右下角显示，避免占用温度主数值区域。 */
-    s_target = text(screen, "", 8, TEMP_Y + 51, 184, 12, F12, MUTED, LV_TEXT_ALIGN_RIGHT);
+    s_target = text(screen, "", 8, TEMP_Y + 47, 184, 12, F12, MUTED, LV_TEXT_ALIGN_RIGHT);
 }
 
 /* 创建孵育时间主数值和剩余时间/运行状态说明。 */
 static void create_timing_area(lv_obj_t *screen)
 {
-    text(screen, S_TIME_TITLE, 8, TIME_Y + 13, 184, 14, F12, MUTED, LV_TEXT_ALIGN_LEFT);
+    s_time_title = text(screen, S_TIME_TITLE, 8, TIME_Y + 10, 184, 14, F12, MUTED, LV_TEXT_ALIGN_LEFT);
     s_time = text(screen, "15.0 min", 8, TIME_Y + 29, 184, 27, F28, 0xD2ECDD, LV_TEXT_ALIGN_LEFT);
     /* 等待/暂停/剩余状态固定放在孵育栏右下角，与温度目标提示对齐。 */
-    s_time_aux = text(screen, S_WAIT, 8, TIME_Y + 50, 184, 12, F12, MUTED, LV_TEXT_ALIGN_RIGHT);
+    s_time_aux = text(screen, S_WAIT, 8, TIME_Y + 46, 184, 12, F12, MUTED, LV_TEXT_ALIGN_RIGHT);
 }
 
 /* 创建自动降温延迟设置、倒计时和状态提示区域。 */
@@ -404,7 +376,48 @@ static void create_delay_area(lv_obj_t *screen)
     s_delay = text(screen, "0", 8, DELAY_Y + 30, 60, 32, F28, YELLOW, LV_TEXT_ALIGN_LEFT);
     s_delay_unit = text(screen, "s", 0, DELAY_Y + 30, 32, 32, F28, MUTED, LV_TEXT_ALIGN_LEFT);
     /* 延迟阶段的小字状态靠右显示，避免与左侧大号秒数重叠。 */
-    s_delay_state = text(screen, "", 92, DELAY_Y + 52, 100, 12, F12, MUTED, LV_TEXT_ALIGN_RIGHT);
+    s_delay_state = text(screen, "", 92, DELAY_Y + 46, 100, 12, F12, MUTED, LV_TEXT_ALIGN_RIGHT);
+}
+
+/* 单对象图标绘制：直接绘制像素段，不为每行像素分配 LVGL 对象。
+ * 避免图标对象过多耗尽 LVGL 堆，导致页面初始化进入故障红屏。 */
+static void draw_action_symbol(lv_event_t *event)
+{
+    const char *const *rows = (const char *const *)lv_event_get_user_data(event);
+    lv_obj_t *obj = (lv_obj_t *)lv_event_get_target(event);
+    lv_layer_t *layer = lv_event_get_layer(event);
+    lv_area_t bounds, segment;
+    lv_draw_rect_dsc_t dsc;
+    int row, col;
+    lv_obj_get_coords(obj, &bounds);
+    lv_draw_rect_dsc_init(&dsc);
+    dsc.bg_color = lv_obj_get_style_text_color(obj, 0);
+    dsc.bg_opa = LV_OPA_COVER;
+    for(row = 0; row < 14; ++row) {
+        col = 0;
+        while(col < 14) {
+            int start;
+            if(rows[row][col] != '#') { ++col; continue; }
+            start = col;
+            while(col < 14 && rows[row][col] == '#') ++col;
+            segment.x1 = bounds.x1 + start;
+            segment.x2 = bounds.x1 + col - 1;
+            segment.y1 = segment.y2 = bounds.y1 + row;
+            lv_draw_rect(layer, &dsc, &segment);
+        }
+    }
+}
+
+/* 模板使用静态存储，绘制回调在页面整个生命周期内均可读取。 */
+static lv_obj_t *create_action_symbol(lv_obj_t *screen, int x, int y,
+                                      const char *const rows[14])
+{
+    lv_obj_t *obj = rect(screen, x, y, 14, 14, BG, 0);
+    if(!obj) return NULL;
+    lv_obj_set_style_bg_opa(obj, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_text_color(obj, lv_color_hex(GREEN), 0);
+    lv_obj_add_event_cb(obj, draw_action_symbol, LV_EVENT_DRAW_MAIN, (void *)rows);
+    return obj;
 }
 
 /* 创建阶段图标和右侧操作图标；四个操作图标各自位于对应卡片内。 */
@@ -417,20 +430,93 @@ static void create_icons(lv_obj_t *screen)
     s_ic_down[0] = rect(screen, 104, 7, 8, 2, BLUE, 0);
     s_ic_down[1] = rect(screen, 105, 10, 6, 2, BLUE, 0);
     s_ic_down[2] = rect(screen, 107, 13, 2, 2, BLUE, 0);
-    s_ic_dot = rect(screen, 106, 9, 4, 4, GREEN, 0);
 
-    /* 播放箭头用三个实心矩形拼接；停止符号固定为方形空心边框。 */
-    s_ic_play[0] = rect(screen, ICON_PLAY_X, ICON_PLAY_Y, 3, 12, GREEN, 0);
-    s_ic_play[1] = rect(screen, ICON_PLAY_X + 3, ICON_PLAY_Y + 3, 3, 6, GREEN, 0);
-    s_ic_play[2] = rect(screen, ICON_PLAY_X + 6, ICON_PLAY_Y + 5, 3, 2, GREEN, 0);
-    s_ic_stop = outline_rect(screen, ICON_STOP_X, ICON_STOP_Y, ACTION_ICON_SIZE, GREEN, 2);
-
-    /* 舱门图标与停止符号分列；消音图标移到下排消音卡片内。 */
-    s_ic_door = rect(screen, ICON_DOOR_X, ICON_DOOR_Y, 13, 11, BG, 2);
-    if(s_ic_door) lv_obj_set_style_bg_opa(s_ic_door, LV_OPA_TRANSP, 0);
-    s_ic_mute[0] = rect(screen, ICON_MUTE_X, ICON_MUTE_Y + 4, 3, 4, GREEN, 0);
-    s_ic_mute[1] = rect(screen, ICON_MUTE_X + 4, ICON_MUTE_Y, 3, 8, GREEN, 0);
-    s_ic_mute[2] = rect(screen, ICON_MUTE_X + 8, ICON_MUTE_Y - 4, 3, 12, GREEN, 0);
+    /* 开始、计时、停止、关盖和消音模板；所有图元由各自容器统一管理。 */
+    static const char *const play_symbol[14] = {
+        "..............",
+        "..##..........",
+        "..####........",
+        "..######......",
+        "..########....",
+        "..##########..",
+        "..###########.",
+        "..##########..",
+        "..########....",
+        "..######......",
+        "..####........",
+        "..##..........",
+        "..............",
+        ".............."
+    };
+    static const char *const clock_symbol[14] = {
+        ".....####.....",
+        "......##......",
+        "....######....",
+        "..##......##..",
+        ".##...##...##.",
+        ".#....##....#.",
+        "##....##....##",
+        "##....####..##",
+        "##..........##",
+        ".#..........#.",
+        ".##........##.",
+        "..##......##..",
+        "....######....",
+        ".............."
+    };
+    static const char *const stop_symbol[14] = {
+        "..............",
+        "..............",
+        "..##########..",
+        "..##########..",
+        "..##########..",
+        "..##########..",
+        "..##########..",
+        "..##########..",
+        "..##########..",
+        "..##########..",
+        "..##########..",
+        "..##########..",
+        "..............",
+        ".............."
+    };
+    static const char *const door_symbol[14] = {
+        "......##......",
+        ".....####.....",
+        "....######....",
+        "...########...",
+        "......##......",
+        "......##......",
+        "..............",
+        "..##########..",
+        "..##########..",
+        "..............",
+        "..##########..",
+        "..##########..",
+        "..............",
+        ".............."
+    };
+    static const char *const mute_symbol[14] = {
+        "..............",
+        ".#.....##.....",
+        ".##...###.....",
+        "..##.####.....",
+        "...##.###.....",
+        ".###.####.....",
+        ".####.###.....",
+        ".#####.##.....",
+        ".######.#.....",
+        ".....###.##...",
+        "......##..##..",
+        ".......#...##.",
+        "............#.",
+        ".............."
+    };
+    s_ic_start = create_action_symbol(screen, ICON_PLAY_X - 1, ICON_PLAY_Y, play_symbol);
+    s_ic_clock = create_action_symbol(screen, ICON_PLAY_X - 1, ICON_PLAY_Y, clock_symbol);
+    s_ic_stop = create_action_symbol(screen, ICON_STOP_X - 1, ICON_STOP_Y, stop_symbol);
+    s_ic_door = create_action_symbol(screen, ICON_DOOR_X - 1, ICON_DOOR_Y, door_symbol);
+    s_ic_mute = create_action_symbol(screen, ICON_MUTE_X - 1, ICON_MUTE_Y, mute_symbol);
 }
 
 /* 创建右侧操作卡片标签；图标和文字各占卡片内独立区域。 */
@@ -452,13 +538,15 @@ static void create_action_area(lv_obj_t *screen)
 void ui_layout_init(void)
 {
     lv_obj_t *screen = lv_screen_active();
-    s_font12 = lv_font_ui_font_12; s_font12.fallback = &lv_font_montserrat_14;
-    s_font14 = lv_font_ui_font_14; s_font14.fallback = &lv_font_montserrat_14;
-    s_font28 = lv_font_ui_font_28; s_font28.fallback = &lv_font_montserrat_20;
+    s_font12 = lv_font_ui_12; s_font12.fallback = &lv_font_montserrat_14;
+    s_font14 = lv_font_ui_14; s_font14.fallback = &lv_font_montserrat_14;
+    s_font28 = lv_font_ui_28; s_font28.fallback = &lv_font_montserrat_20;
+    s_font32 = lv_font_ui_32; s_font32.fallback = &lv_font_montserrat_20;
     s_ok = 1;
     s_focus_index = FOCUS_TEMPERATURE;
     s_edit = 0; s_digit_index = 0;
     s_time_configured = s_delay_configured = 0;
+    s_temp_progress_valid = s_temp_progress_waiting = 0;
 
     lv_obj_clean(screen);
     lv_obj_remove_style_all(screen);
@@ -495,21 +583,23 @@ int ui_layout_ready(void) { return s_ok; }
 /* 按方向映射移动焦点；不可操作的可见控件也保留稳定的焦点位置。 */
 static void nav(uint32_t key)
 {
+    /* 几何排列：温度/开始/停止；时间/舱门/消音；延迟/空/空。
+     * 每次仅移动一个相邻格，边缘及空位保持原焦点，禁止绕行与跨行。 */
     static const uint8_t right[FOCUS_COUNT] = {
-        FOCUS_START, FOCUS_DOOR, FOCUS_MUTE, FOCUS_STOP,
-        FOCUS_TEMPERATURE, FOCUS_MUTE, FOCUS_DELAY
+        FOCUS_START, FOCUS_DOOR, FOCUS_DELAY, FOCUS_STOP,
+        FOCUS_STOP, FOCUS_MUTE, FOCUS_MUTE
     };
     static const uint8_t left[FOCUS_COUNT] = {
-        FOCUS_STOP, FOCUS_MUTE, FOCUS_MUTE, FOCUS_TEMPERATURE,
+        FOCUS_TEMPERATURE, FOCUS_TIME, FOCUS_DELAY, FOCUS_TEMPERATURE,
         FOCUS_START, FOCUS_TIME, FOCUS_DOOR
     };
     static const uint8_t up[FOCUS_COUNT] = {
-        FOCUS_DELAY, FOCUS_TEMPERATURE, FOCUS_TIME, FOCUS_DOOR,
-        FOCUS_MUTE, FOCUS_START, FOCUS_STOP
+        FOCUS_TEMPERATURE, FOCUS_TEMPERATURE, FOCUS_TIME, FOCUS_START,
+        FOCUS_STOP, FOCUS_START, FOCUS_STOP
     };
     static const uint8_t down[FOCUS_COUNT] = {
-        FOCUS_TIME, FOCUS_DELAY, FOCUS_TEMPERATURE, FOCUS_DOOR,
-        FOCUS_MUTE, FOCUS_START, FOCUS_STOP
+        FOCUS_TIME, FOCUS_DELAY, FOCUS_DELAY, FOCUS_DOOR,
+        FOCUS_MUTE, FOCUS_DOOR, FOCUS_MUTE
     };
     const uint8_t *map = key == KEY_RIGHT ? right : key == KEY_LEFT ? left :
                          key == KEY_UP ? up : down;
@@ -538,7 +628,17 @@ static void handle_temperature_key(uint32_t key)
 {
     static const int32_t steps[3] = {1000, 100, 10};
     if(key == KEY_OK) {
-        if(app_service_submit(APP_SET_TEMP, s_draft)) s_edit = 0;
+        if(app_service_submit(APP_SET_TEMP, s_draft)) {
+            /* 设定值提交后立刻建立进度起点，等待温控器确认新目标。 */
+            s_temp_progress_target_centi = s_draft;
+            s_temp_progress_valid = 0;
+            s_temp_progress_waiting = 1;
+            if(s_view.temp.valid) {
+                s_temp_progress_start_centi = s_view.temp.pv_centi;
+                s_temp_progress_valid = 1;
+            }
+            s_edit = 0;
+        }
     } else {
         edit_numeric_digits(key, steps, APP_TEMP_MIN_CENTI, APP_TEMP_MAX_CENTI);
     }
@@ -714,21 +814,31 @@ static int32_t current_display_target(void)
     return s_view.temp.valid ? s_view.temp.pv_centi : 0;
 }
 
+/* 统一将温控器百分之一度读数四舍五入到界面显示的十分之一度。 */
+static int32_t temperature_to_tenth(int32_t centi)
+{
+    return centi >= 0 ? (centi + 5) / 10 : -((-centi + 5) / 10);
+}
+
 /* 绘制顶部目标温度和当前设定值；这里只更新文字，不提交温控命令。 */
 static void render_temperature_setpoint(int32_t display_target)
 {
     char b[96];
     if(!s_view.temp.target_valid) {
         if(s_view.temp.valid) {
-            snprintf(b, sizeof(b), S_CURRENT_SHORT, (long)(s_view.temp.pv_centi / 100),
-                     (long)((s_view.temp.pv_centi % 100) / 10));
-        value(s_target, b);
+            int32_t tenth = temperature_to_tenth(s_view.temp.pv_centi);
+            int32_t absolute = tenth < 0 ? -tenth : tenth;
+            snprintf(b, sizeof(b), S_CURRENT_SHORT, (long)(tenth < 0 ? -absolute / 10 : absolute / 10),
+                     (long)(absolute % 10));
+            value(s_target, b);
         } else {
             value(s_target, S_CURRENT_SHORT_UNKNOWN);
         }
         value(s_sv, S_UNSET);
         return;
     }
+    /* 编辑中小字同步显示正在调整的草稿，避免与主数值暂时不一致。 */
+    if(s_edit && s_focus_index == FOCUS_TEMPERATURE) display_target = s_draft;
     snprintf(b, sizeof(b), S_TARGET_SHORT, (long)(display_target / 100),
              (long)((display_target % 100) / 10));
     value(s_target, b);
@@ -750,7 +860,7 @@ static void render_temperature_widget(void)
     if(s_edit && s_focus_index == FOCUS_TEMPERATURE) {
         snprintf(number, sizeof(number), "%02ld.%ld", (long)(t / 100), (long)((t % 100) / 10));
     } else if(s_view.temp.valid) {
-        int32_t tenth = t >= 0 ? (t + 5) / 10 : -((-t + 5) / 10);
+        int32_t tenth = temperature_to_tenth(t);
         int32_t abs_t = tenth < 0 ? -tenth : tenth;
         snprintf(number, sizeof(number), "%s%ld.%ld", tenth < 0 ? "-" : "",
                  (long)(abs_t / 10), (long)(abs_t % 10));
@@ -777,19 +887,22 @@ static void render_temperature_widget(void)
         tint(s_pv, temp_color);
         tint(s_temp_unit, temp_color);
     }
-    /* 普通温控用与目标温度的接近程度计算填充，避免当前温度高于目标时误显示满格。 */
-    if(s_view.temp.valid && s_view.temp.target_valid &&
-       ph != INC_COOL_REQUEST && ph != INC_COOLING && ph != INC_STORAGE) {
-        int32_t target = s_view.run.target_centi;
-        int32_t pv = s_view.temp.pv_centi;
-        int32_t span, error;
-        if(target < APP_TEMP_MIN_CENTI) target = APP_TEMP_MIN_CENTI;
-        if(target > APP_TEMP_MAX_CENTI) target = APP_TEMP_MAX_CENTI;
-        /* span 取目标值到允许温度范围较远一端的距离，目标达成时满格。 */
-        span = target > APP_TEMP_MAX_CENTI - target ? target : APP_TEMP_MAX_CENTI - target;
-        error = pv > target ? pv - target : target - pv;
-        if(span > 0 && error < span)
-            width = (uint32_t)((int64_t)(span - error) * BAR_W / span);
+    /* 从确认温度设定开始，按起始温度到目标的实际变化计算进度。 */
+    if((ph == INC_IDLE || ph == INC_RUNNING || ph == INC_DELAY) &&
+       s_temp_progress_valid && s_view.temp.valid) {
+        int64_t span = (int64_t)s_temp_progress_target_centi - s_temp_progress_start_centi;
+        int64_t done = (int64_t)s_view.temp.pv_centi - s_temp_progress_start_centi;
+        if(span == 0) {
+            width = BAR_W;
+        } else {
+            if(span < 0) {
+                span = -span;
+                done = -done;
+            }
+            if(done < 0) done = 0;
+            if(done > span) done = span;
+            width = (uint32_t)(done * BAR_W / span);
+        }
     } else if((ph == INC_COOL_REQUEST || ph == INC_COOLING || ph == INC_STORAGE) &&
               s_view.temp.valid && s_view.run.target_centi > 400) {
         /* 自动降温时显示由孵育目标温度下降至 4℃ 的阶段进度。 */
@@ -891,6 +1004,23 @@ static void render_time_widget(void)
     uint32_t width = 0, total, remain;
     int show_bar;
     inc_phase_t ph = s_view.run.phase;
+    /* Completion remains visible throughout delay, cooling and storage. */
+    int completed = ph == INC_FINISHED || ph == INC_DELAY ||
+                    ph == INC_COOL_REQUEST || ph == INC_COOLING || ph == INC_STORAGE;
+    value(s_time_title, completed ? S_TIME_DONE_TITLE : S_TIME_TITLE);
+    if(completed) {
+        /* 完成态使用完整的 32px 行高，并给底部进度条留出间距。 */
+        lv_obj_set_style_text_font(s_time, F32, 0);
+        lv_obj_set_pos(s_time, 8, TIME_Y + 25);
+        lv_obj_set_size(s_time, 184, 36);
+        lv_obj_add_flag(s_time_aux, LV_OBJ_FLAG_HIDDEN);
+    } else {
+        /* 普通孵育时间恢复常规字号和位置。 */
+        lv_obj_set_style_text_font(s_time, F28, 0);
+        lv_obj_set_pos(s_time, 8, TIME_Y + 29);
+        lv_obj_set_size(s_time, 184, 27);
+        lv_obj_remove_flag(s_time_aux, LV_OBJ_FLAG_HIDDEN);
+    }
     /* 空闲显示设定时长，运行显示剩余倒计时，报警时隐藏不可信数值。 */
     total = s_view.run.time_s;
     remain = (s_view.run.remaining_ms + 999u) / 1000u;
@@ -904,7 +1034,7 @@ static void render_time_widget(void)
     } else if(ph == INC_IDLE) {
         snprintf(number, sizeof(number), "%02lu.%lu min",
                  (unsigned long)(total / 60), (unsigned long)((total % 60) / 6));
-    } else strcpy(number, "00:00");
+    } else strcpy(number, completed ? S_COMPLETED : "00:00");
     value(s_time, number);
     tint(s_time, s_view.alarm ? RED : ph == INC_RUNNING ? ORANGE : 0xD2ECDD);
 
@@ -1040,9 +1170,11 @@ static void render_start_control(void)
     } else if(ph == INC_COOL_REQUEST || ph == INC_COOLING || ph == INC_STORAGE) {
         value(s_kt[ACTION_START], S_START); tint(s_kt[ACTION_START], DISABLED);
         value(s_kn[ACTION_START], S_DONE); tint(s_kn[ACTION_START], DISABLED);
-    } else if(ph == INC_IDLE && allowed(FOCUS_START)) {
-        value(s_kt[ACTION_START], S_START); tint(s_kt[ACTION_START], GREEN);
-        value(s_kn[ACTION_START], "SET"); tint(s_kn[ACTION_START], MUTED);
+    } else if(ph == INC_IDLE) {
+        /* 上电及普通待机均提示 SET，是否允许开始只影响文字颜色。 */
+        uint32_t color = allowed(FOCUS_START) ? GREEN : DISABLED;
+        value(s_kt[ACTION_START], S_START); tint(s_kt[ACTION_START], color);
+        value(s_kn[ACTION_START], "SET"); tint(s_kn[ACTION_START], color);
     } else {
         value(s_kt[ACTION_START], S_START); tint(s_kt[ACTION_START], DISABLED);
         value(s_kn[ACTION_START], S_DONE); tint(s_kn[ACTION_START], DISABLED);
@@ -1096,14 +1228,14 @@ static void render_mute_control(void)
     }
 }
 
-/* 图标只表现状态颜色；图标显示/隐藏由焦点规则单独处理。 */
+/* 图标跟随运行状态及操作可用性着色；焦点选择不改变颜色。 */
 static void render_action_icon_colors(void)
 {
     inc_phase_t ph = s_view.run.phase;
     key_icons(ph == INC_RUNNING || ph == INC_DELAY ? ORANGE :
-              (ph == INC_IDLE ? GREEN : DISABLED),
+              (allowed(FOCUS_START) ? GREEN : DISABLED),
               (incubator_model_active(&s_view.run) || ph == INC_FINISHED || ph == INC_ERROR) ? GREEN : DISABLED,
-              s_view.door == MOTOR_FAULT ? RED : GREEN,
+              s_view.door == MOTOR_FAULT ? RED : (allowed(FOCUS_DOOR) ? GREEN : DISABLED),
               s_view.run.buzzer ? RED : DISABLED);
 }
 
@@ -1159,6 +1291,13 @@ void ui_layout_process(void)
 
     app_service_snapshot(&s_view);
 
+    /* 温控器确认新设定后捕获一次温度，后续待机和运行共用这一起点。 */
+    if(s_temp_progress_waiting && !s_view.target_pending && s_view.temp.valid &&
+       s_view.temp.target_valid && s_view.temp.applied_centi == s_temp_progress_target_centi) {
+        s_temp_progress_start_centi = s_view.temp.pv_centi;
+        s_temp_progress_valid = 1;
+        s_temp_progress_waiting = 0;
+    }
     /* 控件因状态变化变为禁用时，只退出编辑；焦点仍留在原位置。 */
     if(s_edit && !allowed(s_focus_index)) {
         s_edit = 0;
@@ -1180,6 +1319,7 @@ void ui_layout_process(void)
     render_stop_control();
     render_door_control();
     render_mute_control();
+    action_icon_visibility();
     render_action_icon_colors();
     refresh_edit_cursor();
 }

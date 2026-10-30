@@ -28,10 +28,13 @@ Project File Date:  10/24/2026
 *** Using Compiler 'V5.06 update 1 (build 61)', folder: 'C:\Keil_v5\ARM\ARMCC\Bin'
 Build target 'mini_evol'
 compiling ui_layout.c...
+../Core/Src/app/ui_layout.c(394): warning:  #188-D: enumerated type mixed with another type
+      dsc.bg_color = lv_obj_get_style_text_color(obj, 0);
+../Core/Src/app/ui_layout.c: 1 warning, 0 errors
 linking...
-Program Size: Code=271248 RO-data=105192 RW-data=612 ZI-data=81292  
+Program Size: Code=271412 RO-data=151084 RW-data=636 ZI-data=81308  
 FromELF: creating hex file...
-"mini_evol\mini_evol.axf" - 0 Error(s), 0 Warning(s).
+"mini_evol\mini_evol.axf" - 0 Error(s), 1 Warning(s).
 
 <h2>Software Packages used:</h2>
 
@@ -49,7 +52,7 @@ Package Vendor: ARM
 <h2>Collection of Component Files used:</h2>
 
    * Component: ARM::CMSIS:CORE:4.3.0
-Build Time Elapsed:  00:00:30
+Build Time Elapsed:  00:00:29
 </pre>
 </body>
 </html>
