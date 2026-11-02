@@ -179,7 +179,7 @@ static void command(const app_command_t *c, uint32_t now, uint8_t *door_request)
             if(motor_init() == MOTOR_RET_OK) *door_request = c->kind == APP_OPEN ? 1 : 2;
             else s_app.message = APP_MSG_DOOR_FAILED;
         } else if(s_app.door_fault ||
-                  (c->kind == APP_OPEN ? motor_open(MOTOR_SPEED_2) : motor_close(MOTOR_SPEED_2)) != MOTOR_RET_OK)
+                  (c->kind == APP_OPEN ? motor_open(MOTOR_SPEED_1) : motor_close(MOTOR_SPEED_1)) != MOTOR_RET_OK)
             s_app.message = APP_MSG_DOOR_FAILED;
         break;
     }
@@ -243,8 +243,16 @@ void app_service_task(void *argument)
             if(!before && door_request) door_request_ms = now;
         }
         if(door_request) {
-            if(s_app.door == MOTOR_OPEN || s_app.door == MOTOR_CLOSED) {
-                motor_ret_t ret = door_request == 1 ? motor_open(MOTOR_SPEED_2) : motor_close(MOTOR_SPEED_2);
+            if((door_request == 1 && s_app.door == MOTOR_OPEN) ||
+               (door_request == 2 && s_app.door == MOTOR_CLOSED)) {
+                printf("[app] deferred door request=%s already at target; skip pulse\r\n",
+                       door_request == 1 ? "OPEN" : "CLOSE");
+                door_request = 0;
+            } else if(s_app.door == MOTOR_OPEN || s_app.door == MOTOR_CLOSED) {
+                motor_ret_t ret = door_request == 1 ? motor_open(MOTOR_SPEED_1) : motor_close(MOTOR_SPEED_1);
+                printf("[app] deferred door request=%s after init state=%s result=%d\r\n",
+                       door_request == 1 ? "OPEN" : "CLOSE",
+                       motor_state_str(s_app.door), (int)ret);
                 if(ret == MOTOR_RET_OK) door_request = 0;
             }
             if((uint32_t)(now-door_request_ms) > 18000u) {

@@ -54,6 +54,10 @@
 typedef enum {
   FB_NONE = 0,
   FB_OPEN_DONE,       /* 0.8ms  开到位心跳 */
+  FB_UP_MOVING,       /* 2.5ms  上翻过程反馈 */
+  FB_UP_DECEL,        /* 3.3ms  上翻减速反馈 */
+  FB_DOWN_DECEL,      /* 5.0ms  下翻减速反馈 */
+  FB_DOWN_MOVING,     /* 5.8ms  下翻过程反馈 */
   FB_CLOSED_DONE,     /* 7.5ms  关到位心跳 */
   FB_OTHER,           /* 其余(过程/减速码), 忽略 */
 } fb_event_t;
@@ -82,6 +86,9 @@ static volatile uint32_t    s_cap_fall = 0;      /* ISR: 最近下降沿(低脉�
 static volatile uint8_t     s_power_on = 0;
 static uint8_t s_close_followup_sent;
 static uint8_t s_close_speed;
+static uint8_t s_motion_feedback_seen;
+static TickType_t s_last_fb_rx_tick;
+static uint8_t s_fb_rx_seen;
 
 /* 私有函数声明 --------------------------------------------------------------*/
 static void motor_hw_init(void);
@@ -89,6 +96,7 @@ static void motor_do_install(void);
 static void motor_act_open(uint8_t speed);
 static void motor_act_close(uint8_t speed);
 static void motor_pulse(uint16_t width_ms);
+static void motor_send_command_pulses(uint16_t pulse_ms);
 static fb_event_t fb_decode(uint32_t w_us);
 static void fb_accept(fb_event_t e);
 static void set_state(motor_state_t st);
@@ -158,6 +166,16 @@ static void motor_pulse(uint16_t width_ms)
   printf("[motor] pulse %ums sent\r\n", width_ms);
 }
 
+/* 开/关动作各发送两次相同命令脉冲，中间留出电机识别间隔。 */
+static void motor_send_command_pulses(uint16_t pulse_ms)
+{
+  motor_pulse(pulse_ms);
+  osDelay(MOTOR_COMMAND_REPEAT_DELAY_MS);
+  printf("[motor] resend command pulse after %ums\r\n",
+         MOTOR_COMMAND_REPEAT_DELAY_MS);
+  motor_pulse(pulse_ms);
+}
+
 /* ========================================================================== */
 /* 中断服务 (TIM4 捕获)                                                         */
 /* ========================================================================== */
@@ -208,17 +226,47 @@ static fb_event_t fb_decode(uint32_t w_us)
 
   d = (int32_t)w_us - MOTOR_FB_OPEN_DONE_US;
   if (d >= -MOTOR_FB_WIN_US && d <= MOTOR_FB_WIN_US)  return FB_OPEN_DONE;
+  d = (int32_t)w_us - MOTOR_FB_MOVING_US;
+  if (d >= -MOTOR_FB_WIN_US && d <= MOTOR_FB_WIN_US)  return FB_UP_MOVING;
+  d = (int32_t)w_us - MOTOR_FB_UP_DECEL_US;
+  if (d >= -MOTOR_FB_WIN_US && d <= MOTOR_FB_WIN_US)  return FB_UP_DECEL;
+  d = (int32_t)w_us - MOTOR_FB_DOWN_DECEL_US;
+  if (d >= -MOTOR_FB_WIN_US && d <= MOTOR_FB_WIN_US)  return FB_DOWN_DECEL;
+  d = (int32_t)w_us - MOTOR_FB_DOWN_MOVING_US;
+  if (d >= -MOTOR_FB_WIN_US && d <= MOTOR_FB_WIN_US)  return FB_DOWN_MOVING;
   d = (int32_t)w_us - MOTOR_FB_CLOSED_DONE_US;
   if (d >= -MOTOR_FB_WIN_US && d <= MOTOR_FB_WIN_US)  return FB_CLOSED_DONE;
   return FB_OTHER;
+}
+
+/* 将反馈类别转成短标签，便于串口日志直接看出电机处于哪个阶段。 */
+static const char *fb_event_str(fb_event_t e)
+{
+  switch(e) {
+    case FB_OPEN_DONE:   return "OPEN_DONE";
+    case FB_UP_MOVING:   return "UP_MOVING";
+    case FB_UP_DECEL:    return "UP_DECEL";
+    case FB_DOWN_DECEL:  return "DOWN_DECEL";
+    case FB_DOWN_MOVING: return "DOWN_MOVING";
+    case FB_CLOSED_DONE: return "CLOSED_DONE";
+    case FB_OTHER:       return "OTHER";
+    default:             return "NONE";
+  }
 }
 
 static void set_state(motor_state_t st)
 {
   if (st != s_state)
   {
+    motor_state_t previous = s_state;
     s_state = st;
-    printf("[motor] state -> %s\r\n", motor_state_str(st));
+    if(previous == MOTOR_INSTALLING || previous == MOTOR_OPENING || previous == MOTOR_CLOSING)
+      printf("[motor] state %s -> %s after %lums\r\n",
+             motor_state_str(previous), motor_state_str(st),
+             (unsigned long)(xTaskGetTickCount() - s_move_start));
+    else
+      printf("[motor] state %s -> %s\r\n",
+             motor_state_str(previous), motor_state_str(st));
   }
 }
 
@@ -233,6 +281,11 @@ static void fb_accept(fb_event_t e)
     s_feedback_ms = HAL_GetTick();
     s_feedback_seen = 1;
   }
+  /* 过程码说明电机确实已接收动作；此后只等待目标到位或总动作超时。 */
+  if((s_state == MOTOR_OPENING && (e == FB_UP_MOVING || e == FB_UP_DECEL)) ||
+     (s_state == MOTOR_CLOSING && (e == FB_DOWN_MOVING || e == FB_DOWN_DECEL)))
+    s_motion_feedback_seen = 1;
+
   switch (s_state)
   {
     case MOTOR_INSTALLING:
@@ -249,8 +302,9 @@ static void fb_accept(fb_event_t e)
 
     case MOTOR_OPENING:
       if (e == FB_OPEN_DONE) set_state(MOTOR_OPEN);
-      /* 指令后仍持续收到旧位置(关位)心跳 = 电机没理会指令(忙窗口) */
+      /* 只有等待窗口内始终没有运动过程码，持续旧关位反馈才判电机未启动。 */
       else if (e == FB_CLOSED_DONE &&
+               !s_motion_feedback_seen &&
                (xTaskGetTickCount() - s_move_start) >=
                pdMS_TO_TICKS(MOTOR_FB_FIRST_TIMEOUT_MS))
       {
@@ -278,6 +332,7 @@ static void fb_accept(fb_event_t e)
         set_state(MOTOR_CLOSED);
       }
       else if (e == FB_OPEN_DONE &&
+               !s_motion_feedback_seen &&
                (xTaskGetTickCount() - s_move_start) >=
                pdMS_TO_TICKS(MOTOR_FB_FIRST_TIMEOUT_MS))
       {
@@ -322,7 +377,11 @@ static void motor_do_install(void)
   */
 static void motor_act_open(uint8_t speed)
 {
-  motor_pulse(MOTOR_PULSE_UP_1 + (speed - 1) * 10);   /* 10/20/30 */
+  uint16_t pulse_ms = MOTOR_PULSE_UP_1 + (speed - 1) * 10;
+  s_motion_feedback_seen = 0;
+  printf("[motor] request OPEN speed=%u from=%s pulse=%ums\r\n",
+         (unsigned)speed, motor_state_str(s_state), pulse_ms);
+  motor_send_command_pulses(pulse_ms);   /* 10/20/30，间隔200ms重发 */
   set_state(MOTOR_OPENING);
   s_move_start = xTaskGetTickCount();
   s_deadline = s_move_start + pdMS_TO_TICKS(MOTOR_MOVE_TIMEOUT_MS);
@@ -333,9 +392,13 @@ static void motor_act_open(uint8_t speed)
   */
 static void motor_act_close(uint8_t speed)
 {
+  uint16_t pulse_ms = MOTOR_PULSE_DOWN_1 + (speed - 1) * 10;
+  s_motion_feedback_seen = 0;
   s_close_followup_sent = 0;
   s_close_speed = speed;
-  motor_pulse(MOTOR_PULSE_DOWN_1 + (speed - 1) * 10); /* 50/60/70 */
+  printf("[motor] request CLOSE speed=%u from=%s pulse=%ums\r\n",
+         (unsigned)speed, motor_state_str(s_state), pulse_ms);
+  motor_send_command_pulses(pulse_ms); /* 50/60/70，间隔200ms重发 */
   set_state(MOTOR_CLOSING);
   s_move_start = xTaskGetTickCount();
   s_deadline = s_move_start + pdMS_TO_TICKS(MOTOR_MOVE_TIMEOUT_MS);
@@ -398,7 +461,35 @@ void MotorTask(void *argument)
     /* --- 2. 处理反馈 (非阻塞排空) --- */
     while (xQueueReceive(s_fb_q, &w_us, 0) == pdPASS)
     {
-      fb_accept(fb_decode(w_us));
+      TickType_t fb_now = xTaskGetTickCount();
+      TickType_t fb_gap = s_fb_rx_seen ? fb_now - s_last_fb_rx_tick : 0;
+      fb_event_t event = fb_decode(w_us);
+      TickType_t log_period = (s_state == MOTOR_INSTALLING ||
+                               s_state == MOTOR_OPENING ||
+                               s_state == MOTOR_CLOSING) ? pdMS_TO_TICKS(500) : pdMS_TO_TICKS(2000);
+      static fb_event_t last_logged_event = FB_NONE;
+      static TickType_t last_logged_tick = 0;
+      static uint8_t have_logged_feedback = 0;
+
+      /* 反馈可能持续广播；类别变化立即打印，同一类别限频，避免串口日志拖慢任务。 */
+      if(!have_logged_feedback ||
+         (event != last_logged_event &&
+          (TickType_t)(fb_now - last_logged_tick) >= pdMS_TO_TICKS(100)) ||
+         (TickType_t)(fb_now - last_logged_tick) >= log_period) {
+        uint32_t elapsed = (s_state == MOTOR_INSTALLING ||
+                            s_state == MOTOR_OPENING ||
+                            s_state == MOTOR_CLOSING)
+                           ? (uint32_t)(fb_now - s_move_start) : 0u;
+        printf("[motor] feedback width=%luus code=%s state=%s elapsed=%lums gap=%lums\r\n",
+               (unsigned long)w_us, fb_event_str(event), motor_state_str(s_state),
+               (unsigned long)elapsed, (unsigned long)fb_gap);
+        last_logged_event = event;
+        last_logged_tick = fb_now;
+        have_logged_feedback = 1;
+      }
+      s_last_fb_rx_tick = fb_now;
+      s_fb_rx_seen = 1;
+      fb_accept(event);
     }
 
     /* --- 3. 超时检查 --- */

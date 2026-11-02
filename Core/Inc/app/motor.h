@@ -54,8 +54,9 @@ extern "C" {
                                               7.5心跳不代表校准完成              */
 #define MOTOR_MOVE_TIMEOUT_MS        20000  /* 开/关动作整体完成时限               */
 #define MOTOR_CLOSE_CONFIRM_MIN_MS     300  /* 补发关盖脉冲后，忽略短暂的旧关闭反馈 */
-#define MOTOR_FB_FIRST_TIMEOUT_MS    2000   /* 指令后旧位置心跳持续超此时长 =
-                                              电机没理会指令(忙窗口), 报FAULT      */
+#define MOTOR_COMMAND_REPEAT_DELAY_MS  200  /* 开/关命令首次脉冲后再次发送的间隔   */
+#define MOTOR_FB_FIRST_TIMEOUT_MS    8000   /* 最长等待运动过程反馈；期间旧位置心跳
+                                              不足以判故障，收到过程反馈则继续等到位 */
 
 /* 反馈脉冲宽度标称值 (us) 及判定窗口 (文档+实测一致, ±0.1ms规格)
  * 驱动只消费两个到位心跳; 过程/减速码不参与逻辑, 仅备查 */
