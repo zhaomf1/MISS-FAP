@@ -28,6 +28,7 @@
 #include "tim.h"
 #include "usart.h"
 #include "gpio.h"
+#include "protocol_slave.h"
 
 /* 私有包含文件 --------------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -109,6 +110,8 @@ int main(void)
   MX_USART1_UART_Init();
   MX_USART2_UART_Init();
   MX_USART3_UART_Init();
+  /* USART1 启用 Modbus 从站；后续 printf 文本输出会被屏蔽以保护 RTU 帧。 */
+  if (!protocol_slave_init()) Error_Handler();
   /* USART6 未启用，PC6/PC7 保留给后续应用扩展。 */
   // MX_USART6_UART_Init();
   /* USER CODE BEGIN 2 */

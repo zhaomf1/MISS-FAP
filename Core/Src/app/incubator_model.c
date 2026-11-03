@@ -61,7 +61,13 @@ void incubator_model_step(incubator_model_t *m, uint32_t now_ms)
         m->remaining_ms = elapsed < m->run_duration_ms ? m->run_duration_ms - elapsed : 0;
         if(m->remaining_ms == 0) {
             m->buzzer = 1;
-            m->phase = m->run_delay_ms ? INC_DELAY : INC_FINISHED;
+            if(m->run_delay_ms) {
+                m->phase = INC_DELAY;
+            } else {
+                /* 协议规定延迟为0时，孵育结束后立即发起自动降温。 */
+                m->phase = INC_COOL_REQUEST;
+                m->cooling_request = 1;
+            }
         }
     }
     if(m->phase == INC_DELAY) {

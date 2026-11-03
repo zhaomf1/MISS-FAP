@@ -22,12 +22,21 @@ Dialog DLL:      TCM.DLL V1.14.8.0
  
 <h2>Project:</h2>
 E:\work\MISS CELL\MISS+FAPÁªÓÃ\ÎÂ¿Ø\code\MISS-FAP\MDK-ARM\mini_evol.uvprojx
-Project File Date:  10/24/2026
+Project File Date:  11/02/2026
 
 <h2>Output:</h2>
 *** Using Compiler 'V5.06 update 1 (build 61)', folder: 'C:\Keil_v5\ARM\ARMCC\Bin'
 Build target 'mini_evol'
-"mini_evol\mini_evol.axf" - 0 Error(s), 0 Warning(s).
+compiling ui_layout.c...
+../Core/Src/app/ui_layout.c(397): warning:  #188-D: enumerated type mixed with another type
+      dsc.bg_color = lv_obj_get_style_text_color(obj, 0);
+../Core/Src/app/ui_layout.c(112): warning:  #550-D: variable "s_time_configured" was set but never used
+  static uint8_t s_time_configured, s_delay_configured;
+../Core/Src/app/ui_layout.c: 2 warnings, 0 errors
+linking...
+Program Size: Code=274860 RO-data=151204 RW-data=696 ZI-data=81568  
+FromELF: creating hex file...
+"mini_evol\mini_evol.axf" - 0 Error(s), 2 Warning(s).
 
 <h2>Software Packages used:</h2>
 
@@ -45,7 +54,7 @@ Package Vendor: ARM
 <h2>Collection of Component Files used:</h2>
 
    * Component: ARM::CMSIS:CORE:4.3.0
-Build Time Elapsed:  00:00:24
+Build Time Elapsed:  00:00:30
 </pre>
 </body>
 </html>

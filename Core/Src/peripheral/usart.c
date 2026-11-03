@@ -20,6 +20,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "usart.h"
 #include "stdio.h"
+#include "protocol_slave.h"
 
 /* USER CODE BEGIN 0 */
 
@@ -642,6 +643,8 @@ void HAL_UART_MspDeInit(UART_HandleTypeDef* uartHandle)
 // 重定向输出printf
 int fputc(int ch, FILE *f)
 {
+    /* Modbus 占用 USART1 时丢弃文本日志，避免破坏 RTU 通信帧。 */
+    if (protocol_slave_uart_active()) return ch;
     HAL_UART_Transmit(&huart1, (uint8_t *)&ch, 1, 1000); // 串口打印
     return ch;
 }

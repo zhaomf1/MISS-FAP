@@ -113,6 +113,9 @@ static uint8_t s_time_configured, s_delay_configured;
 /* 确认温度设定时的温度和目标值，用于显示本次调温进度。 */
 static int32_t s_temp_progress_start_centi, s_temp_progress_target_centi;
 static uint8_t s_temp_progress_valid, s_temp_progress_waiting;
+/* 记录上次确认生效的设定值，用于发现上位机等外部来源修改的目标温度。 */
+static int32_t s_temp_progress_observed_target_centi;
+static uint8_t s_temp_progress_observed;
 static app_snapshot_t s_view;
 static uint32_t s_refresh_ms;
 static uint32_t s_repeat_key = KEY_COUNT, s_hold_ms, s_repeat_ms;
@@ -546,6 +549,7 @@ void ui_layout_init(void)
     s_edit = 0; s_digit_index = 0;
     s_time_configured = s_delay_configured = 0;
     s_temp_progress_valid = s_temp_progress_waiting = 0;
+    s_temp_progress_observed = 0;
 
     lv_obj_clean(screen);
     lv_obj_remove_style_all(screen);
@@ -926,6 +930,12 @@ static void render_alarm_indicator(void)
 static void render_header_door_status(void)
 {
     /* 将电机状态映射为已开、已关、动作中、故障或未知。 */
+    /* 位置反馈超时后即使保留最后的 CLOSED/OPEN 状态，也不能继续显示为到位。 */
+    if(s_view.door_fault || s_view.door == MOTOR_FAULT) {
+        value(s_door, S_LID S_DOOR_FAULT);
+        tint(s_door, RED);
+        return;
+    }
     switch(s_view.door) {
     case MOTOR_OPEN: value(s_door, S_LID S_DOOR_OPEN); break;
     case MOTOR_CLOSED: value(s_door, S_LID S_DOOR_CLOSED); break;
@@ -936,7 +946,7 @@ static void render_header_door_status(void)
     case MOTOR_FAULT: value(s_door, S_LID S_DOOR_FAULT); break;
     default: value(s_door, S_LID "--"); break;
     }
-    tint(s_door, s_view.door_fault ? RED : GREEN);
+    tint(s_door, GREEN);
 }
 
 /* 绘制顶部运行状态、报警文案、颜色和升降温图标。 */
@@ -1060,7 +1070,8 @@ static void render_time_widget(void)
         width = (uint32_t)((uint64_t)elapsed * BAR_W / s_view.run.run_duration_ms);
     }
     else if(ph > INC_RUNNING) width = BAR_W;
-    show_bar = s_time_configured || incubator_model_active(&s_view.run);
+    /* 孵育剩余时间进度只在计时已启动后显示；仅设置时长、等待开始时隐藏。 */
+    show_bar = (ph == INC_RUNNING);
     bar(s_time_bar_track, s_time_bar_fill, show_bar, width,
         ph == INC_RUNNING ? ORANGE : GREEN);
 }
@@ -1072,7 +1083,7 @@ static void render_delay_widget(void)
     uint32_t width = 0;
     int show_bar;
     inc_phase_t ph = s_view.run.phase;
-    /* 延迟阶段显示剩余秒数，降温阶段显示 0，未配置时用 N 表示关闭。 */
+    /* 延迟阶段显示剩余秒数；延迟设为0表示孵育结束后立即降温。 */
     if(s_edit && s_focus_index == FOCUS_DELAY) {
         snprintf(number, sizeof(number), "%03lu", (unsigned long)s_draft);
     } else if(ph == INC_DELAY) {
@@ -1082,10 +1093,8 @@ static void render_delay_widget(void)
         strcpy(number, "0");
     } else if(ph == INC_STORAGE) {
         strcpy(number, "--");
-    } else if(s_view.run.delay_s) {
-        snprintf(number, sizeof(number), "%lu", (unsigned long)s_view.run.delay_s);
     } else {
-        strcpy(number, "N");   /* N 表示未设置自动降温延迟 */
+        snprintf(number, sizeof(number), "%lu", (unsigned long)s_view.run.delay_s);
     }
     value(s_delay, number);
     {
@@ -1108,8 +1117,7 @@ static void render_delay_widget(void)
         snprintf(b, sizeof(b), "%lu/%u",
                  (unsigned long)((s_view.run.delay_remaining_ms + 999u) / 1000u),
                  s_view.run.delay_s);
-    else if(s_view.run.delay_s) snprintf(b, sizeof(b), "%u s", s_view.run.delay_s);
-    else strcpy(b, "N");
+    else snprintf(b, sizeof(b), "%u s", s_view.run.delay_s);
     value(s_delay_set, b);
 
     /* 临时应用消息优先显示；否则按延迟、降温、保存、运行、空闲依次显示说明。 */
@@ -1196,7 +1204,11 @@ static void render_stop_control(void)
 /* 按舱门状态绘制开盖/关盖、动作中和故障文案。 */
 static void render_door_control(void)
 {
-    if(s_view.door == MOTOR_OPEN) {
+    /* 只有当前反馈有效且状态机确认到位，才显示“已开/已关”。 */
+    if(s_view.door_fault || s_view.door == MOTOR_FAULT) {
+        value(s_kt[ACTION_DOOR], S_DOOR_FAULT); tint(s_kt[ACTION_DOOR], RED);
+        value(s_kn[ACTION_DOOR], "SET"); tint(s_kn[ACTION_DOOR], MUTED);
+    } else if(s_view.door == MOTOR_OPEN) {
         value(s_kt[ACTION_DOOR], S_CLOSE); tint(s_kt[ACTION_DOOR], GREEN);
         value(s_kn[ACTION_DOOR], S_DOOR_OPEN); tint(s_kn[ACTION_DOOR], MUTED);
     } else if(s_view.door == MOTOR_CLOSED) {
@@ -1234,7 +1246,8 @@ static void render_action_icon_colors(void)
     key_icons(ph == INC_RUNNING || ph == INC_DELAY ? ORANGE :
               (allowed(FOCUS_START) ? GREEN : DISABLED),
               (incubator_model_active(&s_view.run) || ph == INC_FINISHED || ph == INC_ERROR) ? GREEN : DISABLED,
-              s_view.door == MOTOR_FAULT ? RED : (allowed(FOCUS_DOOR) ? GREEN : DISABLED),
+              (s_view.door_fault || s_view.door == MOTOR_FAULT) ? RED :
+                  (allowed(FOCUS_DOOR) ? GREEN : DISABLED),
               s_view.run.buzzer ? RED : DISABLED);
 }
 
@@ -1290,12 +1303,25 @@ void ui_layout_process(void)
 
     app_service_snapshot(&s_view);
 
-    /* 温控器确认新设定后捕获一次温度，后续待机和运行共用这一起点。 */
-    if(s_temp_progress_waiting && !s_view.target_pending && s_view.temp.valid &&
-       s_view.temp.target_valid && s_view.temp.applied_centi == s_temp_progress_target_centi) {
-        s_temp_progress_start_centi = s_view.temp.pv_centi;
-        s_temp_progress_valid = 1;
-        s_temp_progress_waiting = 0;
+    /* UI 本地设定或 Modbus 设定只要确认生效，就以当前 PV 作为进度起点。 */
+    if(!s_view.target_pending && s_view.temp.target_valid) {
+        if(!s_temp_progress_waiting &&
+           (!s_temp_progress_observed ||
+            s_view.temp.applied_centi != s_temp_progress_observed_target_centi)) {
+            /* 目标值与上次记录不同，说明有新的设定已由温控器确认。 */
+            s_temp_progress_target_centi = s_view.temp.applied_centi;
+            s_temp_progress_valid = 0;
+            s_temp_progress_waiting = 1;
+        }
+        if(s_temp_progress_waiting && s_view.temp.valid &&
+           s_view.temp.applied_centi == s_temp_progress_target_centi) {
+            s_temp_progress_start_centi = s_view.temp.pv_centi;
+            s_temp_progress_target_centi = s_view.temp.applied_centi;
+            s_temp_progress_observed_target_centi = s_view.temp.applied_centi;
+            s_temp_progress_observed = 1;
+            s_temp_progress_valid = 1;
+            s_temp_progress_waiting = 0;
+        }
     }
     /* 控件因状态变化变为禁用时，只退出编辑；焦点仍留在原位置。 */
     if(s_edit && !allowed(s_focus_index)) {

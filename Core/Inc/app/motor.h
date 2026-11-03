@@ -45,7 +45,7 @@ extern "C" {
 #define MOTOR_SIDE                  MOTOR_SIDE_LEFT
 
 /* 上电后等电机自身MCU启动的时间 */
-#define MOTOR_STARTUP_DELAY_MS      500
+#define MOTOR_STARTUP_DELAY_MS      2000
 
 /* 各种超时 (ms) */
 #define MOTOR_INSTALL_TIMEOUT_MS    15000  /* 安装指令后等"到位"的时限            */

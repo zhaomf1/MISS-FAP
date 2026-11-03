@@ -6,13 +6,13 @@
  *  @brief 与硬件无关的孵育状态机和倒计时策略。
  */
 
-/* 产品范围：温度 0.0~80.0℃，孵育时间 0.1~99.9 分钟，延迟 0~300 秒。 */
+/* 参数范围按通信协议：温度 0.0~100.0℃，时间 0~600.0 分钟，延迟 0~600 秒。 */
 #define APP_TEMP_MIN_CENTI 0
 #define APP_TEMP_MAX_CENTI 10000
 
-#define APP_TIME_MIN_S     6u
-#define APP_TIME_MAX_S     5994u
-#define APP_DELAY_MAX_S    300u
+#define APP_TIME_MIN_S     0u
+#define APP_TIME_MAX_S     36000u /* 协议单位0.1分钟；6000 × 6秒。 */
+#define APP_DELAY_MAX_S    600u
 
 typedef enum {
     INC_IDLE, INC_RUNNING, INC_FINISHED, INC_DELAY,
@@ -22,7 +22,7 @@ typedef enum {
 typedef struct {
     int32_t target_centi;           /* 用户液体目标温度，不是温控器原始 SV。 */
     uint32_t time_s;                /* 已设置的孵育时间，单位为秒。 */
-    uint16_t delay_s;               /* 0 表示 N，不启用自动降温。 */
+    uint16_t delay_s;               /* 孵育结束后的降温延迟；0表示立即降温。 */
     inc_phase_t phase;
     uint32_t run_start_ms, run_duration_ms, run_delay_ms;
     uint32_t remaining_ms, delay_remaining_ms;

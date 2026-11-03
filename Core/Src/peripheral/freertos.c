@@ -30,6 +30,7 @@
 #include "lvgl_port.h"
 #include "key.h"
 #include "modbus_rtu.h"
+#include "protocol_slave.h"
 #include "app_service.h"
 /* USER CODE END Includes */
 
@@ -71,6 +72,10 @@ static const osThreadAttr_t tempTask_attributes = {
 };
 static const osThreadAttr_t appTask_attributes = {
   .name = "appTask", .stack_size = 2048,
+  .priority = (osPriority_t) osPriorityNormal,
+};
+static const osThreadAttr_t protocolTask_attributes = {
+  .name = "protocolTask", .stack_size = 1024,
   .priority = (osPriority_t) osPriorityNormal,
 };
 /* USER CODE END Variables */
@@ -132,6 +137,7 @@ void MX_FREERTOS_Init(void) {
   osThreadNew(MotorTask, NULL, &motorTask_attributes);
   if(osThreadNew(temp_service_task, NULL, &tempTask_attributes) == NULL) Error_Handler();
   if(osThreadNew(app_service_task, NULL, &appTask_attributes) == NULL) Error_Handler();
+  if(osThreadNew(protocol_slave_task, NULL, &protocolTask_attributes) == NULL) Error_Handler();
   osThreadNew(lvgl_port_task, NULL, &uiTask_attributes);
   osThreadNew(key_task, NULL, &keyTask_attributes);
   /* add threads, ... */

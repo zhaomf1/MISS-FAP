@@ -173,7 +173,7 @@ static void motor_send_command_pulses(uint16_t pulse_ms)
   osDelay(MOTOR_COMMAND_REPEAT_DELAY_MS);
   printf("[motor] resend command pulse after %ums\r\n",
          MOTOR_COMMAND_REPEAT_DELAY_MS);
-  motor_pulse(pulse_ms);
+  // motor_pulse(pulse_ms);
 }
 
 /* ========================================================================== */
@@ -319,8 +319,8 @@ static void fb_accept(fb_event_t e)
         uint16_t pulse_ms = MOTOR_PULSE_DOWN_1 + (s_close_speed - 1) * 10;
         /* 电机首次上报关闭可能早于机械到位，补发一次相同关盖指令压实舱门。 */
         s_close_followup_sent = 1;
-        printf("[motor] early CLOSED feedback; send final close pulse %ums\r\n", pulse_ms);
-        motor_pulse(pulse_ms);
+        // printf("[motor] early CLOSED feedback; send final close pulse %ums\r\n", pulse_ms);
+        // motor_pulse(pulse_ms);
         s_move_start = xTaskGetTickCount();
         s_deadline = s_move_start + pdMS_TO_TICKS(MOTOR_MOVE_TIMEOUT_MS);
       }

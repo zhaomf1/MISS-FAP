@@ -57,3 +57,4 @@ mini_evol\main.o: ../Core/Inc/peripheral/spi.h
 mini_evol\main.o: ../Core/Inc/peripheral/tim.h
 mini_evol\main.o: ../Core/Inc/peripheral/usart.h
 mini_evol\main.o: ../Core/Inc/peripheral/gpio.h
+mini_evol\main.o: ../Core/Inc/common/protocol_slave.h

@@ -13,6 +13,7 @@
 "mini_evol\app_service.o"
 "mini_evol\lv_font_ui_font.o"
 "mini_evol\modbus_rtu.o"
+"mini_evol\protocol_slave.o"
 "mini_evol\rs485_port.o"
 "mini_evol\gpio.o"
 "mini_evol\freertos.o"
