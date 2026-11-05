@@ -286,6 +286,20 @@ static void fb_accept(fb_event_t e)
      (s_state == MOTOR_CLOSING && (e == FB_DOWN_MOVING || e == FB_DOWN_DECEL)))
     s_motion_feedback_seen = 1;
 
+  /* 过程码也可能来自手动推盖；据方向同步状态，避免仍显示到位并触发舱门超时报警。 */
+  if((s_state == MOTOR_OPEN && (e == FB_DOWN_MOVING || e == FB_DOWN_DECEL)) ||
+     (s_state == MOTOR_CLOSED && (e == FB_UP_MOVING || e == FB_UP_DECEL)) ||
+     (s_state == MOTOR_OPENING && (e == FB_DOWN_MOVING || e == FB_DOWN_DECEL)) ||
+     (s_state == MOTOR_CLOSING && (e == FB_UP_MOVING || e == FB_UP_DECEL))) {
+    motor_state_t moving_state =
+        (e == FB_UP_MOVING || e == FB_UP_DECEL) ? MOTOR_OPENING : MOTOR_CLOSING;
+    set_state(moving_state);
+    s_motion_feedback_seen = 1;
+    s_move_start = xTaskGetTickCount();
+    s_deadline = s_move_start + pdMS_TO_TICKS(MOTOR_MOVE_TIMEOUT_MS);
+    if(moving_state == MOTOR_CLOSING) s_close_followup_sent = 0;
+  }
+
   switch (s_state)
   {
     case MOTOR_INSTALLING:

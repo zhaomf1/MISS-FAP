@@ -5,13 +5,13 @@
 #define S_LID                    "盖:"                         /* 顶部舱门状态前缀 */
 #define S_DOOR_CLOSED            "已关"                        /* 舱门已关闭 */
 #define S_DOOR_OPEN              "已开"                        /* 舱门已打开 */
-#define S_DOOR_MOVING            "动作中"                      /* 舱门电机动作中 */
+#define S_DOOR_OPENING           "开盖中"                      /* 舱门正在打开 */
+#define S_DOOR_CLOSING           "关盖中"                      /* 舱门正在关闭 */
 #define S_DOOR_INIT              "初始化中"                    /* 上电舱门初始化中 */
 #define S_DOOR_FAULT             "故障"                        /* 舱门故障 */
 #define S_HEAT                   "升温"                        /* 温度低于目标，正在升温 */
 #define S_COOL                   "降温"                        /* 温度高于目标，正在降温 */
 #define S_HOLD                   "恒温中"                      /* 恒温中 */
-#define S_REACH                  "达标"                        /* 已达到目标温度 */
 #define S_BUZZ                   "蜂鸣"                        /* 蜂鸣器正在提示 */
 #define S_ALARM                  "报警"                        /* 报警状态 */
 #define S_SAVE                   "保存"                        /* 保存阶段 */

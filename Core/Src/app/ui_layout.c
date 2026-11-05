@@ -112,7 +112,7 @@ static int32_t s_draft;
 static uint8_t s_time_configured, s_delay_configured;
 /* 确认温度设定时的温度和目标值，用于显示本次调温进度。 */
 static int32_t s_temp_progress_start_centi, s_temp_progress_target_centi;
-static uint8_t s_temp_progress_valid, s_temp_progress_waiting;
+static uint8_t s_temp_progress_valid, s_temp_progress_waiting, s_temp_progress_reached;
 /* 记录上次确认生效的设定值，用于发现上位机等外部来源修改的目标温度。 */
 static int32_t s_temp_progress_observed_target_centi;
 static uint8_t s_temp_progress_observed;
@@ -234,7 +234,8 @@ static int allowed(uint8_t i)
     case FOCUS_TIME: return ph == INC_IDLE;
     case FOCUS_DELAY: return ph == INC_IDLE || ph == INC_RUNNING;
     case FOCUS_START: return ph == INC_IDLE && s_view.temp.online &&
-                   s_view.temp.valid && !s_view.temp.alarm && s_view.temp.target_valid;
+                   s_view.temp.valid && !s_view.temp.alarm && s_view.temp.target_valid &&
+                   s_view.at_temperature;
     case FOCUS_STOP: return incubator_model_active(&s_view.run) ||
                    ph == INC_FINISHED || ph == INC_ERROR;           /* 停止：运行中、已完成或出错时可操作 */
     case FOCUS_DOOR: return s_view.door != MOTOR_OPENING &&
@@ -348,7 +349,8 @@ static void create_header_area(lv_obj_t *screen)
 {
     s_alarm = text(screen, "ALM", 6, 4, 32, 16, F12, MUTED, LV_TEXT_ALIGN_LEFT);
     s_door = text(screen, S_LID S_DOOR_CLOSED, 42, 4, 62, 16, F12, GREEN, LV_TEXT_ALIGN_LEFT);
-    s_phase = text(screen, S_WAIT, 116, 4, 70, 16, F12, MUTED, LV_TEXT_ALIGN_CENTER);
+    /* 状态文字左对齐图标右侧；整体右移一个中文字宽，避开舱门状态。 */
+    s_phase = text(screen, S_WAIT, 128, 4, 60, 16, F12, MUTED, LV_TEXT_ALIGN_LEFT);
     s_sv = text(screen, "", 188, 4, 126, 16, F12, MUTED, LV_TEXT_ALIGN_RIGHT);
 }
 
@@ -427,12 +429,12 @@ static lv_obj_t *create_action_symbol(lv_obj_t *screen, int x, int y,
 static void create_icons(lv_obj_t *screen)
 {
     /* 升温/降温用三层像素箭头，恒温时显示中心圆点。 */
-    s_ic_up[0] = rect(screen, 107, 7, 2, 2, GREEN, 0);
-    s_ic_up[1] = rect(screen, 105, 10, 6, 2, GREEN, 0);
-    s_ic_up[2] = rect(screen, 104, 13, 8, 2, GREEN, 0);
-    s_ic_down[0] = rect(screen, 104, 7, 8, 2, BLUE, 0);
-    s_ic_down[1] = rect(screen, 105, 10, 6, 2, BLUE, 0);
-    s_ic_down[2] = rect(screen, 107, 13, 2, 2, BLUE, 0);
+    s_ic_up[0] = rect(screen, 119, 7, 2, 2, GREEN, 0);
+    s_ic_up[1] = rect(screen, 117, 10, 6, 2, GREEN, 0);
+    s_ic_up[2] = rect(screen, 116, 13, 8, 2, GREEN, 0);
+    s_ic_down[0] = rect(screen, 116, 7, 8, 2, BLUE, 0);
+    s_ic_down[1] = rect(screen, 117, 10, 6, 2, BLUE, 0);
+    s_ic_down[2] = rect(screen, 119, 13, 2, 2, BLUE, 0);
 
     /* 开始、计时、停止、关盖和消音模板；所有图元由各自容器统一管理。 */
     static const char *const play_symbol[14] = {
@@ -549,6 +551,7 @@ void ui_layout_init(void)
     s_edit = 0; s_digit_index = 0;
     s_time_configured = s_delay_configured = 0;
     s_temp_progress_valid = s_temp_progress_waiting = 0;
+    s_temp_progress_reached = 0;
     s_temp_progress_observed = 0;
 
     lv_obj_clean(screen);
@@ -626,6 +629,58 @@ static void edit_numeric_digits(uint32_t key, const int32_t steps[3],
     }
 }
 
+/* 返回孵育时间显示中的整数位数；不足两位时界面补零显示。 */
+static uint8_t time_integer_digits(void)
+{
+    uint32_t minutes = (uint32_t)s_draft / 60u;
+    return minutes >= 100u ? 3u : 2u;
+}
+
+/* 孵育时间按实际显示位编辑：百/十/个位分别代表分钟，小数位代表0.1分钟。 */
+static void edit_time_digits(uint32_t key)
+{
+    uint8_t integer_digits = time_integer_digits();
+    uint8_t digit_count = (uint8_t)(integer_digits + 1u);
+
+    if(key == KEY_LEFT || key == KEY_RIGHT) {
+        s_digit_index = (uint8_t)((s_digit_index + digit_count +
+                         (key == KEY_RIGHT ? 1u : digit_count - 1u)) % digit_count);
+        return;
+    }
+    if(key != KEY_UP && key != KEY_DOWN) return;
+
+    /* 记录当前位步长；跨越99.9/100.0时据此保持光标对应的数值位。 */
+    {
+        int32_t step = 6;
+        uint8_t i;
+        if(s_digit_index < integer_digits) {
+            step = 60;
+            for(i = (uint8_t)(s_digit_index + 1u); i < integer_digits; ++i)
+                step *= 10;
+        }
+        s_draft += key == KEY_UP ? step : -step;
+        if(s_draft < (int32_t)APP_TIME_MIN_S) s_draft = (int32_t)APP_TIME_MIN_S;
+        if(s_draft > (int32_t)APP_TIME_MAX_S) s_draft = (int32_t)APP_TIME_MAX_S;
+
+        integer_digits = time_integer_digits();
+        digit_count = (uint8_t)(integer_digits + 1u);
+        if(step == 6) {
+            s_digit_index = integer_digits;
+        } else {
+            int32_t largest_step = 60;
+            uint8_t i;
+            for(i = 1; i < integer_digits; ++i) largest_step *= 10;
+            if(step > largest_step) step = largest_step;
+            s_digit_index = 0;
+            while(largest_step > step) {
+                largest_step /= 10;
+                ++s_digit_index;
+            }
+        }
+        if(s_digit_index >= digit_count) s_digit_index = (uint8_t)(digit_count - 1u);
+    }
+}
+
 /* 温度控件交互：上下/左右修改温度草稿，确认后提交目标温度命令。 */
 static void handle_temperature_key(uint32_t key)
 {
@@ -636,6 +691,7 @@ static void handle_temperature_key(uint32_t key)
             s_temp_progress_target_centi = s_draft;
             s_temp_progress_valid = 0;
             s_temp_progress_waiting = 1;
+            s_temp_progress_reached = 0;
             if(s_view.temp.valid) {
                 s_temp_progress_start_centi = s_view.temp.pv_centi;
                 s_temp_progress_valid = 1;
@@ -650,14 +706,13 @@ static void handle_temperature_key(uint32_t key)
 /* 时间控件交互：按分钟和秒位调整，确认后提交孵育时长命令。 */
 static void handle_time_key(uint32_t key)
 {
-    static const int32_t steps[3] = {600, 60, 6};
     if(key == KEY_OK) {
         if(app_service_submit(APP_SET_TIME, s_draft)) {
             s_time_configured = 1;
             s_edit = 0;
         }
     } else {
-        edit_numeric_digits(key, steps, (int32_t)APP_TIME_MIN_S, (int32_t)APP_TIME_MAX_S);
+        edit_time_digits(key);
     }
 }
 
@@ -690,7 +745,7 @@ static void begin_time_edit(void)
 {
     s_draft = (int32_t)s_view.run.time_s;
     if(s_draft < (int32_t)APP_TIME_MIN_S) s_draft = (int32_t)APP_TIME_MIN_S;
-    s_digit_index = 2;
+    s_digit_index = time_integer_digits(); /* 初始选中小数位；三位分钟时光标相应右移。 */
     s_edit = 1;
 }
 
@@ -895,7 +950,9 @@ static void render_temperature_widget(void)
        s_temp_progress_valid && s_view.temp.valid) {
         int64_t span = (int64_t)s_temp_progress_target_centi - s_temp_progress_start_centi;
         int64_t done = (int64_t)s_view.temp.pv_centi - s_temp_progress_start_centi;
-        if(span == 0) {
+        if(s_temp_progress_reached) {
+            width = BAR_W;
+        } else if(span == 0) {
             width = BAR_W;
         } else {
             if(span < 0) {
@@ -905,6 +962,11 @@ static void render_temperature_widget(void)
             if(done < 0) done = 0;
             if(done > span) done = span;
             width = (uint32_t)(done * BAR_W / span);
+        }
+        /* 达到温控到位阈值或首次满格后锁存，避免温度波动让进度条回退。 */
+        if(s_view.at_temperature || width >= BAR_W) {
+            s_temp_progress_reached = 1;
+            width = BAR_W;
         }
     } else if((ph == INC_COOL_REQUEST || ph == INC_COOLING || ph == INC_STORAGE) &&
               s_view.temp.valid && s_view.run.target_centi > 400) {
@@ -941,8 +1003,10 @@ static void render_header_door_status(void)
     case MOTOR_CLOSED: value(s_door, S_LID S_DOOR_CLOSED); break;
     case MOTOR_INSTALLING:
         value(s_door, S_LID S_DOOR_INIT); break;
-    case MOTOR_OPENING: case MOTOR_CLOSING:
-        value(s_door, S_LID S_DOOR_MOVING); break;
+    case MOTOR_OPENING:
+        value(s_door, S_LID S_DOOR_OPENING); break;
+    case MOTOR_CLOSING:
+        value(s_door, S_LID S_DOOR_CLOSING); break;
     case MOTOR_FAULT: value(s_door, S_LID S_DOOR_FAULT); break;
     default: value(s_door, S_LID "--"); break;
     }
@@ -969,8 +1033,8 @@ static void render_phase_indicator(int32_t display_target)
     }
     else switch(ph) {
     case INC_RUNNING:
-        /* 运行中按实际温度判断升温、降温或达到目标温度。 */
-        if(s_view.at_temperature) { phase_txt = S_REACH; phase_col = GREEN; }
+        /* 运行中达到设定温度后统一显示“恒温中”。 */
+        if(s_view.at_temperature) { phase_txt = S_HOLD; phase_col = GREEN; }
         else if(s_view.temp.pv_centi < display_target) { phase_txt = S_HEAT; phase_col = RED; heat = 1; }
         else { phase_txt = S_COOL; phase_col = BLUE; cool = 1; }
         break;
@@ -1082,10 +1146,14 @@ static void render_delay_widget(void)
     char b[96], number[24];
     uint32_t width = 0;
     int show_bar;
+    int hide_delay_hint = !s_edit && s_view.run.delay_s == 0u;
     inc_phase_t ph = s_view.run.phase;
     /* 延迟阶段显示剩余秒数；延迟设为0表示孵育结束后立即降温。 */
     if(s_edit && s_focus_index == FOCUS_DELAY) {
         snprintf(number, sizeof(number), "%03lu", (unsigned long)s_draft);
+    } else if(s_view.run.delay_s == 0u) {
+        /* 延迟设为0表示禁用延迟保存功能，主数值用N表示。 */
+        strcpy(number, "N");
     } else if(ph == INC_DELAY) {
         snprintf(number, sizeof(number), "%lu",
                  (unsigned long)((s_view.run.delay_remaining_ms + 999u) / 1000u));
@@ -1109,16 +1177,28 @@ static void render_delay_widget(void)
             }
         }
         lv_obj_set_pos(s_delay_unit, 8 + value_width + 2, DELAY_Y + 30);
+        tint(s_delay_unit, YELLOW);
+        if(number[0] == 'N') lv_obj_add_flag(s_delay_unit, LV_OBJ_FLAG_HIDDEN);
+        else lv_obj_remove_flag(s_delay_unit, LV_OBJ_FLAG_HIDDEN);
     }
 
-    if(s_edit && s_focus_index == FOCUS_DELAY)
+    if(hide_delay_hint) {
+        /* N 已表示延迟功能禁用，隐藏右上角重复的秒数提示。 */
+        value(s_delay_set, "");
+        lv_obj_add_flag(s_delay_set, LV_OBJ_FLAG_HIDDEN);
+    } else if(s_edit && s_focus_index == FOCUS_DELAY) {
         snprintf(b, sizeof(b), "%lu s", (unsigned long)s_draft);
-    else if(ph == INC_DELAY && s_view.run.delay_s)
+        lv_obj_remove_flag(s_delay_set, LV_OBJ_FLAG_HIDDEN);
+    } else if(ph == INC_DELAY && s_view.run.delay_s) {
         snprintf(b, sizeof(b), "%lu/%u",
                  (unsigned long)((s_view.run.delay_remaining_ms + 999u) / 1000u),
                  s_view.run.delay_s);
-    else snprintf(b, sizeof(b), "%u s", s_view.run.delay_s);
-    value(s_delay_set, b);
+        lv_obj_remove_flag(s_delay_set, LV_OBJ_FLAG_HIDDEN);
+    } else {
+        snprintf(b, sizeof(b), "%u s", s_view.run.delay_s);
+        lv_obj_remove_flag(s_delay_set, LV_OBJ_FLAG_HIDDEN);
+    }
+    if(!hide_delay_hint) value(s_delay_set, b);
 
     /* 临时应用消息优先显示；否则按延迟、降温、保存、运行、空闲依次显示说明。 */
     if(s_view.message != APP_MSG_NONE) {
@@ -1201,7 +1281,7 @@ static void render_stop_control(void)
     }
 }
 
-/* 按舱门状态绘制开盖/关盖、动作中和故障文案。 */
+/* 按舱门状态绘制开盖、关盖、初始化及故障文案。 */
 static void render_door_control(void)
 {
     /* 只有当前反馈有效且状态机确认到位，才显示“已开/已关”。 */
@@ -1214,9 +1294,14 @@ static void render_door_control(void)
     } else if(s_view.door == MOTOR_CLOSED) {
         value(s_kt[ACTION_DOOR], S_OPEN); tint(s_kt[ACTION_DOOR], GREEN);
         value(s_kn[ACTION_DOOR], S_DOOR_CLOSED); tint(s_kn[ACTION_DOOR], MUTED);
-    } else if(s_view.door == MOTOR_OPENING || s_view.door == MOTOR_CLOSING ||
-              s_view.door == MOTOR_INSTALLING) {
-        value(s_kt[ACTION_DOOR], S_DOOR_MOVING); tint(s_kt[ACTION_DOOR], MUTED);
+    } else if(s_view.door == MOTOR_OPENING) {
+        value(s_kt[ACTION_DOOR], S_DOOR_OPENING); tint(s_kt[ACTION_DOOR], MUTED);
+        value(s_kn[ACTION_DOOR], "--"); tint(s_kn[ACTION_DOOR], MUTED);
+    } else if(s_view.door == MOTOR_CLOSING) {
+        value(s_kt[ACTION_DOOR], S_DOOR_CLOSING); tint(s_kt[ACTION_DOOR], MUTED);
+        value(s_kn[ACTION_DOOR], "--"); tint(s_kn[ACTION_DOOR], MUTED);
+    } else if(s_view.door == MOTOR_INSTALLING) {
+        value(s_kt[ACTION_DOOR], S_DOOR_INIT); tint(s_kt[ACTION_DOOR], MUTED);
         value(s_kn[ACTION_DOOR], "--"); tint(s_kn[ACTION_DOOR], MUTED);
     } else if(s_view.door == MOTOR_FAULT) {
         value(s_kt[ACTION_DOOR], S_DOOR_FAULT); tint(s_kt[ACTION_DOOR], RED);
@@ -1268,7 +1353,10 @@ static void refresh_edit_cursor(void)
         } else if(s_focus_index == FOCUS_TIME) {
             snprintf(cursor, sizeof(cursor), "%02lu.%lu", (unsigned long)(s_draft / 60),
                      (unsigned long)((s_draft % 60) / 6));
-            if(ci == 2) ++ci;
+            {
+                uint8_t integer_digits = time_integer_digits();
+                ci = (uint8_t)(s_digit_index + (s_digit_index >= integer_digits ? 1u : 0u));
+            }
             y = TIME_Y + 58;
         } else {
             snprintf(cursor, sizeof(cursor), "%03lu", (unsigned long)s_draft);
@@ -1312,6 +1400,7 @@ void ui_layout_process(void)
             s_temp_progress_target_centi = s_view.temp.applied_centi;
             s_temp_progress_valid = 0;
             s_temp_progress_waiting = 1;
+            s_temp_progress_reached = 0;
         }
         if(s_temp_progress_waiting && s_view.temp.valid &&
            s_view.temp.applied_centi == s_temp_progress_target_centi) {

@@ -10,7 +10,7 @@
 #define APP_TEMP_MIN_CENTI 0
 #define APP_TEMP_MAX_CENTI 10000
 
-#define APP_TIME_MIN_S     0u
+#define APP_TIME_MIN_S     6u      /* 最小孵育时间为0.1分钟，即6秒。 */
 #define APP_TIME_MAX_S     36000u /* 协议单位0.1分钟；6000 × 6秒。 */
 #define APP_DELAY_MAX_S    600u
 

@@ -233,7 +233,7 @@ static uint8_t write_register(uint16_t address, uint16_t value)
         app_value = (int32_t)value * 10; /* 协议0.1℃转为应用0.01℃ */
         break;
     case 0x0021u:
-        if (value > 6000u) return MODBUS_EXCEPTION_VALUE;
+        if (value < 1u || value > 6000u) return MODBUS_EXCEPTION_VALUE;
         command = APP_SET_TIME;
         app_value = (int32_t)value * 6; /* 协议0.1分钟转为秒 */
         break;

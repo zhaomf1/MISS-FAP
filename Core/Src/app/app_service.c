@@ -135,7 +135,7 @@ static void command(const app_command_t *c, uint32_t now, uint8_t *door_request)
         break;
     case APP_SET_TIME:
         if(incubator_model_active(&s_app.run)) s_app.message = APP_MSG_SETTING_LOCKED;
-        else if(c->value >= 0 && c->value <= (int32_t)APP_TIME_MAX_S)
+        else if(c->value >= (int32_t)APP_TIME_MIN_S && c->value <= (int32_t)APP_TIME_MAX_S)
             s_app.run.time_s = (uint32_t)c->value;
         break;
     case APP_SET_DELAY:
@@ -164,6 +164,8 @@ static void command(const app_command_t *c, uint32_t now, uint8_t *door_request)
             s_app.message = APP_MSG_TEMP_OFFLINE;
         else if(!s_app.temp.target_valid || s_app.run.phase == INC_ERROR)
             s_app.message = APP_MSG_SET_TEMP;
+        else if(!s_app.at_temperature)
+            s_app.message = APP_MSG_BUSY;
         else incubator_model_start(&s_app.run, now);
         break;
     case APP_MUTE:
