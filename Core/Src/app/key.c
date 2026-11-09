@@ -22,11 +22,11 @@ typedef struct {
 } key_pin_t;
 
 static key_pin_t s_keys[KEY_COUNT] = {
-    {GPIOB, GPIO_PIN_9, 0, 0, 0}, /* 左选择 */
-    {GPIOE, GPIO_PIN_0, 0, 0, 0}, /* 右选择 */
-    {GPIOE, GPIO_PIN_1, 0, 0, 0}, /* 确认 */
-    {GPIOC, GPIO_PIN_6, 0, 0, 0}, /* 上选择 */
-    {GPIOC, GPIO_PIN_7, 0, 0, 0}  /* 下选择 */
+    {GPIOA, GPIO_PIN_8, 0, 0, 0}, /* 左选择 KEY_Left  (PA8) */
+    {GPIOC, GPIO_PIN_6, 0, 0, 0}, /* 右选择 KEY_Right (PC6) */
+    {GPIOC, GPIO_PIN_8, 0, 0, 0}, /* 确认   KEY_OK    (PC8) */
+    {GPIOC, GPIO_PIN_9, 0, 0, 0}, /* 上选择 KEY_Up    (PC9) */
+    {GPIOC, GPIO_PIN_7, 0, 0, 0}  /* 下选择 KEY_Down  (PC7) */
 };
 
 static QueueHandle_t s_key_queue;
@@ -35,10 +35,10 @@ static QueueHandle_t s_key_queue;
 static const char *key_name(key_id_t key)
 {
     switch (key) {
-    case KEY_LEFT:  return "LEFT(PB9)";
-    case KEY_RIGHT: return "RIGHT(PE0)";
-    case KEY_OK:    return "OK(PE1)";
-    case KEY_UP:    return "UP(PC6)";
+    case KEY_LEFT:  return "LEFT(PA8)";
+    case KEY_RIGHT: return "RIGHT(PC6)";
+    case KEY_OK:    return "OK(PC8)";
+    case KEY_UP:    return "UP(PC9)";
     case KEY_DOWN:  return "DOWN(PC7)";
     default:        return "UNKNOWN";
     }
@@ -53,11 +53,9 @@ static void key_gpio_init(void)
     init.Pull = KEY_ACTIVE_LOW ? GPIO_PULLUP : GPIO_PULLDOWN;
     init.Speed = GPIO_SPEED_FREQ_LOW;
 
-    init.Pin = GPIO_PIN_9;
-    HAL_GPIO_Init(GPIOB, &init);
-    init.Pin = GPIO_PIN_0 | GPIO_PIN_1;
-    HAL_GPIO_Init(GPIOE, &init);
-    init.Pin = GPIO_PIN_6 | GPIO_PIN_7;
+    init.Pin = GPIO_PIN_8;
+    HAL_GPIO_Init(GPIOA, &init);
+    init.Pin = GPIO_PIN_6 | GPIO_PIN_7 | GPIO_PIN_8 | GPIO_PIN_9;
     HAL_GPIO_Init(GPIOC, &init);
 }
 
@@ -86,7 +84,7 @@ void key_task(void *argument)
     key_gpio_init();
 
 #if KEY_DEBUG_LOG
-    printf("[key] init: LEFT=PB9 RIGHT=PE0 OK=PE1 UP=PC6 DOWN=PC7, active-low, debounce=20ms\r\n");
+    printf("[key] init: LEFT=PA8 RIGHT=PC6 OK=PC8 UP=PC9 DOWN=PC7, active-low, debounce=20ms\r\n");
 #endif
 
     for (;;) {

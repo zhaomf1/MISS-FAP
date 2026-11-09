@@ -1,0 +1,15 @@
+miss-fap\queue.o: ../Middlewares/Third_Party/FreeRTOS/Source/queue.c
+miss-fap\queue.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\stdlib.h
+miss-fap\queue.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\string.h
+miss-fap\queue.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/FreeRTOS.h
+miss-fap\queue.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\stddef.h
+miss-fap\queue.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\stdint.h
+miss-fap\queue.o: ../Core/Inc/peripheral/FreeRTOSConfig.h
+miss-fap\queue.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/projdefs.h
+miss-fap\queue.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/portable.h
+miss-fap\queue.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/deprecated_definitions.h
+miss-fap\queue.o: ../Middlewares/Third_Party/FreeRTOS/Source/portable/RVDS/ARM_CM4F/portmacro.h
+miss-fap\queue.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/mpu_wrappers.h
+miss-fap\queue.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/task.h
+miss-fap\queue.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/list.h
+miss-fap\queue.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/queue.h

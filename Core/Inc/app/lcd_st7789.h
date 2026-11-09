@@ -3,11 +3,11 @@
   * @file    lcd_st7789.h
   * @brief   2.4寸 240x320 SPI TFT (中景园 ZJY240S0800TG13, 控制器 ST7789V) 驱动
   *
-  * 接口: SPI1 = SCK PB3 / MOSI PA7 (无MISO, 只写), 软件CS = PA4
-  * 控制: 背光 BLK=PD9, 数据/指令 DC=PD10, 复位 RST=PD11
+  * 接口(新版卡): SPI1 = SCK PA5 / MOSI PA7 (无MISO, 只写), 软件CS = PA4
+  * 控制: 背光 BLK=PC2, 数据/指令 DC=PC3, 复位 RST=PA6
   *
-  * 注意: CubeMX 把 PA4 配成了 AF5(SPI1_NSS)但 NSS=SOFT, 本驱动运行时改回
-  *       GPIO 输出作软件片选; PD9/10/11 由 gpio.c 静态配置, 上电默认
+  * 注意: PA4 由 gpio.c 配成 GPIO 输出作软件片选(NSS=SOFT), 本驱动初始化时
+  *       会再次固化; PC2/PC3/PA6 由 gpio.c 静态配置, 上电默认
   *       背光灭/RST拉低(屏幕保持复位), lcd_init() 时释放。
   *
  * 像素格式 RGB565, 16bit大端(高字节在前)写入。建议由单一任务调用。

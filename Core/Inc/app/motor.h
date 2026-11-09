@@ -3,14 +3,14 @@
   * @file    motor.h
   * @brief   SND2506-24MM-305 电动翻盖驱动器 驱动接口（纯驱动版，无测试代码）
   *
-  * 硬件连接（2026-10-19 实测定稿，测试板）：
-  *   PD13 ----> 电机 Input   (推挽3.3V直推, 空闲低+高电平单脉冲10~90ms)
-  *   PD14 <----> 电机 Feedback (空闲高电平, 低脉冲宽度=状态码, 持续广播)
+  * 硬件连接（2026-11-09 移植到新版卡 STM32F405RGT6）：
+  *   PB9  ----> 电机 Input   (推挽3.3V直推, 空闲低+高电平单脉冲10~90ms)
+  *   PB8  <----> 电机 Feedback (空闲高电平, 低脉冲宽度=状态码, 持续广播)
   *   电机线束(按厂商控制板说明, 左->右): Feedback、空、Input、GND、VCC(12V)
-  *   PE6 ----> VALVE_5 输出级 ----> 电机12V供电开关 (main.c 上电拉高, 系统级)
+  *   新版卡电机 12V 常通供电, 老板 PE6(VALVE_5) 电源开关已取消
   *
-  * PD14 复用为 TIM4_CH3 输入捕获 (1MHz, CH3/CH4双沿测低脉宽)
-  * PD13 复用为 GPIO 输出, 极性由 MOTOR_CMD_INVERTED 决定
+  * PB8 复用为 TIM4_CH3 输入捕获 (1MHz, CH3/CH4双沿测低脉宽)
+  * PB9 复用为 GPIO 输出, 极性由 MOTOR_CMD_INVERTED 决定
   *
   * 使用流程 (应用层):
   *   1. 上电后 MotorTask 初始化硬件，等待电机启动后自动发送安装指令
@@ -38,7 +38,7 @@ extern "C" {
 /* 指令极性: 0=推挽直推(空闲低+高脉冲) 1=开漏经2N7002反相(预留) */
 #define MOTOR_CMD_INVERTED          0
 
-/* PD14 内部上拉: 反馈开漏时提供空闲高; 推挽时无害 */
+/* PB8 内部上拉: 反馈开漏时提供空闲高; 推挽时无害 */
 #define MOTOR_FB_PULLUP             1
 
 /* 安装方式: 左装=90ms / 右装=40ms (每次电机上电必须收到一次, 否则升降可能无效) */
@@ -108,8 +108,6 @@ void MotorTask(void *argument);
 motor_ret_t motor_init(void);                       /* 初始化电机(安装指令), 电机自校准 */
 motor_ret_t motor_open(motor_speed_t speed);        /* 上翻开盖, 到位自动停 */
 motor_ret_t motor_close(motor_speed_t speed);       /* 下翻关盖, 到位自动停 */
-void motor_power_set(int on);                      /* 电机12V电源开关 */
-int  motor_power_get(void);
 motor_state_t motor_get_state(void);                /* 查询状态 */
 /* 首次收到有效位置心跳前返回 UINT32_MAX，用于监测空闲链路。 */
 uint32_t motor_feedback_age_ms(void);

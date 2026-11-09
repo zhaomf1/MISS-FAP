@@ -1,0 +1,12 @@
+miss-fap\list.o: ../Middlewares/Third_Party/FreeRTOS/Source/list.c
+miss-fap\list.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\stdlib.h
+miss-fap\list.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/FreeRTOS.h
+miss-fap\list.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\stddef.h
+miss-fap\list.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\stdint.h
+miss-fap\list.o: ../Core/Inc/peripheral/FreeRTOSConfig.h
+miss-fap\list.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/projdefs.h
+miss-fap\list.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/portable.h
+miss-fap\list.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/deprecated_definitions.h
+miss-fap\list.o: ../Middlewares/Third_Party/FreeRTOS/Source/portable/RVDS/ARM_CM4F/portmacro.h
+miss-fap\list.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/mpu_wrappers.h
+miss-fap\list.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/list.h

@@ -2,7 +2,7 @@
   ******************************************************************************
   * @file    motor.c
   * @brief   SND2506 翻盖电机驱动 (纯驱动版, 从调试电机分支移植 2026-10-19)
-  *          TIM4_CH3(PD14) 输入捕获测反馈 + PD13 GPIO 发脉宽指令
+  *          TIM4_CH3(PB8) 输入捕获测反馈 + PB9 GPIO 发脉宽指令
   *          + FreeRTOS 状态机服务任务
   *
   * 移植说明: 本文件为 master 分支驱动版, 只包含驱动本体——
@@ -11,8 +11,8 @@
   *   反馈环形缓存dump, 重试/退避/断电自愈(应用层策略, 需要时按
   *   调试分支 40~44 节实现移植)。
   *
-  * 若 CubeMX 重新生成代码, 本模块运行时自行重配 PD13/PD14/TIM4,
-  * 无需依赖 .ioc; 但 main.c 的 PD13 早期拉低保护需保留(见 main.c)。
+  * 若 CubeMX 重新生成代码, 本模块运行时自行重配 PB9/PB8/TIM4,
+  * 无需依赖 .ioc; 电机 12V 在新版卡上常通供电, 不再有电源开关脚。
   ******************************************************************************
   */
 
@@ -27,13 +27,13 @@
 
 /* 私有宏定义 ----------------------------------------------------------------*/
 
-/* 指令输出脚 */
-#define MOTOR_CMD_PORT           GPIOD
-#define MOTOR_CMD_PIN            GPIO_PIN_13
+/* 指令输出脚 (新版卡: PB9 = Motor_Input) */
+#define MOTOR_CMD_PORT           GPIOB
+#define MOTOR_CMD_PIN            GPIO_PIN_9
 
-/* 反馈输入脚 (TIM4_CH3, AF2) */
-#define MOTOR_FB_PORT            GPIOD
-#define MOTOR_FB_PIN             GPIO_PIN_14
+/* 反馈输入脚 (新版卡: PB8 = Motor_Feedback, TIM4_CH3/AF2) */
+#define MOTOR_FB_PORT            GPIOB
+#define MOTOR_FB_PIN             GPIO_PIN_8
 
 /* TIM4 计数时钟: 84MHz / (83+1) = 1MHz -> 1us 分辨率, 16bit 量程 65.5ms */
 #define MOTOR_TIM_PRESCALER      83
@@ -83,7 +83,6 @@ static volatile TickType_t   s_deadline = 0;     /* 当前阶段超时时刻 */
 static volatile TickType_t   s_move_start = 0;   /* 本次动作发起时刻 */
 
 static volatile uint32_t    s_cap_fall = 0;      /* ISR: 最近下降沿(低脉冲开始) */
-static volatile uint8_t     s_power_on = 0;
 static uint8_t s_close_followup_sent;
 static uint8_t s_close_speed;
 static uint8_t s_motion_feedback_seen;
@@ -106,7 +105,7 @@ static void set_state(motor_state_t st);
 /* ========================================================================== */
 
 /**
-  * @brief  运行时重配 PD13/PD14/TIM4 (兼容 CubeMX 重新生成代码)
+  * @brief  运行时重配 PB9/PB8/TIM4
   * @note   MX_TIM4_Init 已把 TIM4 时钟打开, 这里只改分频/通道/引脚
   */
 static void motor_hw_init(void)
@@ -114,7 +113,7 @@ static void motor_hw_init(void)
   GPIO_InitTypeDef gpio = {0};
   TIM_IC_InitTypeDef ic = {0};
 
-  /* --- PD13: 指令输出. 先写空闲电平再切输出, 防止上电毛刺 --- */
+  /* --- PB9: 指令输出. 先写空闲电平再切输出, 防止上电毛刺 --- */
   HAL_GPIO_WritePin(MOTOR_CMD_PORT, MOTOR_CMD_PIN, CMD_IDLE_LEVEL);
   gpio.Pin   = MOTOR_CMD_PIN;
   gpio.Mode  = CMD_GPIO_MODE;
@@ -122,7 +121,7 @@ static void motor_hw_init(void)
   gpio.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(MOTOR_CMD_PORT, &gpio);
 
-  /* --- PD14: TIM4_CH3 输入捕获 (AF2) --- */
+  /* --- PB8: TIM4_CH3 输入捕获 (AF2) --- */
   gpio.Pin       = MOTOR_FB_PIN;
   gpio.Mode      = GPIO_MODE_AF_PP;
   gpio.Pull      = MOTOR_FB_PULLUP ? GPIO_PULLUP : GPIO_NOPULL;
@@ -136,8 +135,8 @@ static void motor_hw_init(void)
   HAL_TIM_Base_Init(&htim4);
 
   /* 反馈空闲高+低脉冲(实测, 与文档一致)
-   * CH3: 下降沿(低脉冲开始), IC3 经 DIRECTTI  映射到 TI3 (即 PD14)
-   * CH4: 上升沿(低脉冲结束), IC4 经 INDIRECTTI 映射到 TI3 (不占用PD15) */
+   * CH3: 下降沿(低脉冲开始), IC3 经 DIRECTTI  映射到 TI3 (即 PB8)
+   * CH4: 上升沿(低脉冲结束), IC4 经 INDIRECTTI 映射到 TI3 (不占用 PB9) */
   ic.ICPrescaler = TIM_ICPSC_DIV1;
   ic.ICFilter    = 0x0F;                    /* 滤除 <3us 毛刺 */
   ic.ICPolarity  = TIM_ICPOLARITY_FALLING;
@@ -151,7 +150,6 @@ static void motor_hw_init(void)
   HAL_NVIC_EnableIRQ(TIM4_IRQn);
   HAL_TIM_IC_Start_IT(&htim4, TIM_CHANNEL_3);
   HAL_TIM_IC_Start_IT(&htim4, TIM_CHANNEL_4);
-  motor_power_set(1);
 }
 
 /**
@@ -619,16 +617,4 @@ motor_ret_t motor_close(motor_speed_t speed)
   if (speed < MOTOR_SPEED_1) speed = MOTOR_SPEED_2;
   if (speed > MOTOR_SPEED_3) speed = MOTOR_SPEED_2;
   return send_cmd(MCMD_CLOSE, (uint8_t)speed);
-}
-
-void motor_power_set(int on)
-{
-  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_6,
-                    on ? GPIO_PIN_SET : GPIO_PIN_RESET);
-  s_power_on = on ? 1u : 0u;
-}
-
-int motor_power_get(void)
-{
-  return s_power_on ? 1 : 0;
 }

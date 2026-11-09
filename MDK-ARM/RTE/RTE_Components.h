@@ -3,8 +3,8 @@
  * Auto generated Run-Time-Environment Component Configuration File
  *      *** Do not modify ! ***
  *
- * Project: 'mini_evol' 
- * Target:  'mini_evol' 
+ * Project: 'miss-fap' 
+ * Target:  'miss-fap' 
  */
 
 #ifndef RTE_COMPONENTS_H

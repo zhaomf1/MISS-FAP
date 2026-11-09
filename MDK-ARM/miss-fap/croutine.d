@@ -1,0 +1,14 @@
+miss-fap\croutine.o: ../Middlewares/Third_Party/FreeRTOS/Source/croutine.c
+miss-fap\croutine.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/FreeRTOS.h
+miss-fap\croutine.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\stddef.h
+miss-fap\croutine.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\stdint.h
+miss-fap\croutine.o: ../Core/Inc/peripheral/FreeRTOSConfig.h
+miss-fap\croutine.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/projdefs.h
+miss-fap\croutine.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/portable.h
+miss-fap\croutine.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/deprecated_definitions.h
+miss-fap\croutine.o: ../Middlewares/Third_Party/FreeRTOS/Source/portable/RVDS/ARM_CM4F/portmacro.h
+miss-fap\croutine.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/mpu_wrappers.h
+miss-fap\croutine.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/task.h
+miss-fap\croutine.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/list.h
+miss-fap\croutine.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/croutine.h
+miss-fap\croutine.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/list.h

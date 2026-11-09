@@ -15,14 +15,15 @@
 #include "cmsis_os.h"
 
 /* 私有宏定义 ----------------------------------------------------------------*/
+/* 新版卡 LCD 接口: SPI1 = SCK PA5 / MOSI PA7, 软件片选 PA4 */
 #define LCD_CS_PORT    GPIOA
 #define LCD_CS_PIN     GPIO_PIN_4
-#define LCD_DC_PORT    GPIOD
-#define LCD_DC_PIN     GPIO_PIN_10
-#define LCD_RST_PORT   GPIOD
-#define LCD_RST_PIN    GPIO_PIN_11
-#define LCD_BLK_PORT   GPIOD
-#define LCD_BLK_PIN     GPIO_PIN_9
+#define LCD_DC_PORT    GPIOC
+#define LCD_DC_PIN     GPIO_PIN_3
+#define LCD_RST_PORT   GPIOA
+#define LCD_RST_PIN    GPIO_PIN_6
+#define LCD_BLK_PORT   GPIOC
+#define LCD_BLK_PIN    GPIO_PIN_2
 
 /* SPI 参数: 模式0(已在MX_SPI1_Init配好), 42MHz, 8bit, MSB first */
 #define LCD_SPI_TIMEOUT_MS  100
@@ -60,7 +61,9 @@ static void lcd_cmd_data(uint8_t c, const uint8_t *d, uint16_t n)
 }
 
 /**
-  * @brief PA4 从 AF5(SPI1_NSS) 改回 GPIO 输出, 作软件片选
+  * @brief PA4 作 LCD 软件片选, 确保高阻态下不被误选
+  * @note  gpio.c 已把 PA4 配成 GPIO 输出(空闲高); 这里再固化一次,
+  *        防止 CubeMX 重新生成时又把 PA4 配成 AF5(SPI1_NSS)
   */
 static void lcd_pin_init(void)
 {

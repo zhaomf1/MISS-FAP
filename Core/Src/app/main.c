@@ -23,11 +23,11 @@
 #include "dma.h"
 #include "i2c.h"
 #include "iwdg.h"
-#include "sdio.h"
 #include "spi.h"
 #include "tim.h"
 #include "usart.h"
 #include "gpio.h"
+#include "bsp_board_io.h"
 #include "protocol_slave.h"
 
 /* 私有包含文件 --------------------------------------------------------------*/
@@ -99,21 +99,18 @@ int main(void)
   MX_DMA_Init();
   MX_I2C1_Init();
   MX_IWDG_Init();
-  // MX_SDIO_SD_Init();
   MX_SPI1_Init();
   MX_SPI2_Init();
-  MX_TIM1_Init();
-  MX_TIM2_Init();
-  MX_TIM3_Init();
-  MX_TIM4_Init();
-  MX_UART4_Init();
+  MX_TIM4_Init();          /* TIM4 只做电机反馈输入捕获 */
   MX_USART1_UART_Init();
   MX_USART2_UART_Init();
   MX_USART3_UART_Init();
-  /* USART1 启用 Modbus 从站；后续 printf 文本输出会被屏蔽以保护 RTU 帧。 */
+  /* USART2(PA2/PA3) 为调试口, printf 已重定向到这里。
+   * USART1(PA9/PA10) 专供上位机 Modbus 从站。 */
   if (!protocol_slave_init()) Error_Handler();
-  /* USART6 未启用，PC6/PC7 保留给后续应用扩展。 */
-  // MX_USART6_UART_Init();
+  /* 12V 输出上电默认全部关闭(高电平有效)。 */
+  bsp_board_output_set(BSP_OUT_FAN, 0);
+  bsp_board_output_set(BSP_OUT_BUZZER, 0);
   /* USER CODE BEGIN 2 */
   printf("system start\n");
   /* 仅初始化显示驱动；UI绘制和业务任务已移除。 */
