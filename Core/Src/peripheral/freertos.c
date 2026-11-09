@@ -53,7 +53,9 @@
 /* USER CODE BEGIN Variables */
 static const osThreadAttr_t motorTask_attributes = {
   .name = "motorTask",
-  .stack_size = 1024 * 4,
+  /* 2KB(512字): 任务内只有标量与 printf/队列调用, 无大数组;
+     静态估算峰值 <1KB, 留一倍余量 */
+  .stack_size = 512 * 4,
   .priority = (osPriority_t) osPriorityAboveNormal,
 };
 static const osThreadAttr_t uiTask_attributes = {
@@ -63,7 +65,8 @@ static const osThreadAttr_t uiTask_attributes = {
 };
 static const osThreadAttr_t keyTask_attributes = {
   .name = "keyTask",
-  .stack_size = 512 * 4,
+  /* 1KB(256字): 仅 GPIO 采样 + 消抖 + 事件入队, 栈需求很小 */
+  .stack_size = 256 * 4,
   .priority = (osPriority_t) osPriorityNormal,
 };
 static const osThreadAttr_t tempTask_attributes = {
