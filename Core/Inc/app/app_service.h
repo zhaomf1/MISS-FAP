@@ -19,7 +19,10 @@ typedef struct {
     temp_snapshot_t temp;
     motor_state_t door;
     uint8_t door_fault, target_pending, at_temperature, alarm, buzzer_hardware;
-    uint8_t write_fault; /* 锁存写入故障，直到下一次设定值成功写入。 */
+    uint8_t write_fault; /* 写入故障；失败后会周期重试，成功或重试用尽即清除。 */
+    /* 报警来源拆分(便于定位与日志): temp_alarm = 温控相关, door_alarm = 舱门相关;
+     * alarm 仍是二者之或, 界面/协议继续用它, 行为不变。 */
+    uint8_t temp_alarm, door_alarm;
     app_message_t message;
 } app_snapshot_t;
 

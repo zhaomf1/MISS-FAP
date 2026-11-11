@@ -15,6 +15,20 @@
  * 该模块只允许一个未完成的设定值写入，避免多个请求覆盖完成编号。
  */
 
+/* 轮询失败判据: 单次失败仅丢弃本拍数据, 连续 TEMP_VALID_FAIL_LIMIT 次
+ * 才判"数据无效"; 连续 TEMP_ONLINE_FAIL_LIMIT 次才判"温控器离线"。
+ * 这样 485 偶发的一次抖动不会让界面报警闪断、也不会白暂停孵育计时。 */
+#define TEMP_VALID_FAIL_LIMIT   2u
+#define TEMP_ONLINE_FAIL_LIMIT  3u
+
+/* 报警字 bit0 表示温控器自身错误: 自动下发 system reset 清除,
+ * 该位不再上报给 UI / 上位机(其余报警位照常上报)。
+ * 错误状态检测周期 5s: bit0 的判定与复位决策只在到点时做一次,
+ * 不再每轮(0.5s)都查, 减少判定/日志负担。
+ * 复位指令另外做 10s 节流, 避免设备持续报错时狂发。 */
+#define TEMP_ERROR_CHECK_MS     5000u
+#define TEMP_RESET_RETRY_MS     10000u
+
 typedef struct { int32_t value; uint32_t id; } temp_command_t;
 static SemaphoreHandle_t s_lock;
 static QueueHandle_t s_commands;
@@ -70,6 +84,9 @@ void temp_service_task(void *argument)
     uint8_t initialized = 0, output_off_confirmed = 0;
     uint8_t failures = 0, poll_failure_logged = 0;
     uint32_t last_init_log_ms = 0, last_poll_log_ms = 0;
+    uint32_t last_reset_ms = 0;    /* 上次 system reset 时刻, 0=未发过 */
+    uint32_t last_error_check_ms = 0; /* 上次 bit0 错误状态检测时刻, 0=未检过 */
+    uint8_t reset_fail_logged = 0;
     (void)argument;
     for(;;) {
         temp_snapshot_t next;
@@ -92,6 +109,7 @@ void temp_service_task(void *argument)
             int off_result = temp_ctrl_switch_ctrl_temperature(0);
             if(off_result == MODBUS_OK) {
                 output_off_confirmed = 1;
+                next.ctrl_on = 0;
                 printf("[temp] boot control disable: OK\r\n");
             } else if(last_init_log_ms == 0 ||
                       (uint32_t)(HAL_GetTick() - last_init_log_ms) >= 5000u) {
@@ -127,6 +145,7 @@ void temp_service_task(void *argument)
             if(ok) {
                 next.applied_centi = command.value;
                 next.target_valid = 1;
+                next.ctrl_on = 1;   /* 闭环已开启: 风扇等附属输出据此动作 */
             } else {
                 /* 后续开启控制确认失败前，温控器 SV 可能已经发生变化。 */
                 next.target_valid = 0;
@@ -164,12 +183,42 @@ void temp_service_task(void *argument)
             failures = 0;
             next.online = next.valid = 1;
             next.pv_centi = temp_calibration_to_display((int16_t)pv);
-            next.alarm = alarm;
+            if(alarm & TEMP_CTRL_ALARM_BIT_ERROR) {
+                /* 设备自身错误: 判定与复位按 5s 周期执行一次 */
+                uint32_t tnow = HAL_GetTick();
+                if(last_error_check_ms == 0 ||
+                   (uint32_t)(tnow - last_error_check_ms) >= TEMP_ERROR_CHECK_MS) {
+                    last_error_check_ms = tnow;
+                    /* 复位指令再叠加 10s 节流, 防止持续报错时每 5s 都发 */
+                    if(last_reset_ms == 0 ||
+                       (uint32_t)(tnow - last_reset_ms) >= TEMP_RESET_RETRY_MS) {
+                        last_reset_ms = tnow;
+                        {
+                            int rr = temp_ctrl_system_reset();
+                            if(rr == MODBUS_OK) {
+                                reset_fail_logged = 0;
+                                printf("[temp] device error bit0 set -> system reset OK\r\n");
+                            } else if(!reset_fail_logged) {
+                                reset_fail_logged = 1;
+                                printf("[temp] device error bit0 set -> system reset FAILED: %s(%d)\r\n",
+                                       modbus_result_name(rr), rr);
+                            }
+                        }
+                    }
+                }
+                /* bit0 不向上层上报: UI/上位机看不到这条"设备错误", 其余报警位照常保留 */
+                next.alarm = (uint16_t)(alarm & (uint16_t)~TEMP_CTRL_ALARM_BIT_ERROR);
+            } else {
+                next.alarm = alarm;
+                last_error_check_ms = 0;  /* 报警消失后重新计时, 下次再犯立即检测/复位 */
+                last_reset_ms = 0;
+                reset_fail_logged = 0;
+            }
             next.last_good_ms = HAL_GetTick();
         } else {
-            if(failures < 3) failures++;
-            next.valid = 0;
-            if(failures >= 3) next.online = 0;
+            if(failures < TEMP_ONLINE_FAIL_LIMIT) failures++;
+            if(failures >= TEMP_VALID_FAIL_LIMIT) next.valid = 0;
+            if(failures >= TEMP_ONLINE_FAIL_LIMIT) next.online = 0;
         }
         xSemaphoreTake(s_lock, portMAX_DELAY);
         s_state = next;

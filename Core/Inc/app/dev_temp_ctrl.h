@@ -8,6 +8,11 @@
  */
 #define TEMP_CTRL_SLAVE_ADDR 0x80u
 
+/* 报警字(输入寄存器 0x0003)的位定义。
+ * bit0 = 温控器自身错误, 可用 system reset(coil 0x0001) 清除;
+ *        该位不向 UI / 上位机上报, 由 temp_service 自动复位后忽略。 */
+#define TEMP_CTRL_ALARM_BIT_ERROR   0x0001u
+
 /** @brief 初始化温控器通信参数。 */
 int dev_temp_init(void);
 /** @brief 开启或关闭温控器闭环输出。 */
@@ -20,7 +25,7 @@ int temp_ctrl_read_temperature(uint16_t *temperature);
 int temp_ctrl_read_alarm(uint16_t *alarm_info);
 /** @brief 设置温控器通信超时时间，单位为秒。 */
 int temp_ctrl_set_timeout(uint16_t second);
-/** @brief 请求温控器执行系统复位。 */
+/** @brief 请求温控器执行系统复位(用于清除报警字 bit0 的设备错误)。 */
 int temp_ctrl_system_reset(void);
 
 #endif

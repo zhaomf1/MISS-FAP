@@ -31,6 +31,16 @@ void bsp_board_output_set(bsp_out_ch_t ch, int on)
                     on ? GPIO_PIN_SET : GPIO_PIN_RESET);   /* 高电平有效 */
 }
 
+/* 回读引脚实际电平: 推挽输出时 IDR 反映的是引脚真实状态,
+ * 用于排查"代码认为已打开但引脚仍为低"的情况。 */
+int bsp_board_output_get(bsp_out_ch_t ch)
+{
+  if ((unsigned)ch >= (unsigned)BSP_OUT_COUNT)
+    return 0;
+
+  return HAL_GPIO_ReadPin(s_out_pins[ch].port, s_out_pins[ch].pin) == GPIO_PIN_SET;
+}
+
 void bsp_board_buzzer_set(int on)
 {
   bsp_board_output_set(BSP_OUT_BUZZER, on);

@@ -33,6 +33,9 @@ typedef enum {
 /* 置位/复位某路 12V 输出; on!=0 输出高(打开) */
 void bsp_board_output_set(bsp_out_ch_t ch, int on);
 
+/* 回读某路输出的实际引脚电平(IDR), 用于确认驱动是否真的生效; 非 0 = 高 */
+int  bsp_board_output_get(bsp_out_ch_t ch);
+
 /* 蜂鸣器输出(PB0)开关, 高电平有效 */
 void bsp_board_buzzer_set(int on);
 

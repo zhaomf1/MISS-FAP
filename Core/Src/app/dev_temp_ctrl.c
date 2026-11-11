@@ -36,7 +36,7 @@ int temp_ctrl_set_timeout(uint16_t second)
 /* 请求温控器执行系统复位。 */
 int temp_ctrl_system_reset(void) 
 { 
-    return modbus_write_single_coil(TEMP_CTRL_SLAVE_ADDR, 0x0001, 1); 
+    return modbus_write_single_coil(TEMP_CTRL_SLAVE_ADDR, 0x0001, 0xFF); 
 }
 /* 初始化温控器默认超时时间。 */
 int dev_temp_init(void)

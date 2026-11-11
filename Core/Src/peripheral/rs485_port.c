@@ -13,8 +13,8 @@ static osMutexId_t s_bus_mutex;
 static osSemaphoreId_t s_rx_done;
 static uint8_t s_initialized;
 
-/* Board-specific DE/RE control can be supplied by the board port later. */
-__WEAK void rs485_port_set_transmit(int enable) { (void)enable; }
+/* 本板 485 收发器为自动方向控制(硬件自处理 DE/RE), 固件不需要方向脚,
+ * 因此这里不再提供 set_transmit 之类的方向控制接口。 */
 
 int rs485_port_init(void)
 {
@@ -59,14 +59,11 @@ int rs485_port_exchange(const uint8_t *tx, uint16_t tx_len,
 
     (void)osSemaphoreAcquire(s_rx_done, 0);
     rx_restart();
-    rs485_port_set_transmit(1);
     if (HAL_UART_Transmit(&huart3, (uint8_t *)tx, tx_len, timeout_ms) != HAL_OK) {
-        rs485_port_set_transmit(0);
         osMutexRelease(s_bus_mutex);
         return -3;
     }
     while (__HAL_UART_GET_FLAG(&huart3, UART_FLAG_TC) == RESET) { }
-    rs485_port_set_transmit(0);
 
     if (osSemaphoreAcquire(s_rx_done, timeout_ms) != osOK) {
         rx_restart();

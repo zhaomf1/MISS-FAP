@@ -22,7 +22,9 @@ typedef enum {
 typedef struct {
     int32_t target_centi;           /* 用户液体目标温度，不是温控器原始 SV。 */
     uint32_t time_s;                /* 已设置的孵育时间，单位为秒。 */
-    uint16_t delay_s;               /* 孵育结束后的降温延迟；0表示立即降温。 */
+    uint16_t delay_s;               /* 孵育结束后的降温延迟(秒)。
+                                       0 = 禁用 4℃ 保存(界面显示 N): 结束后不降温,
+                                       继续按孵育设定温度保温, 阶段置 INC_FINISHED。 */
     inc_phase_t phase;
     uint32_t run_start_ms, run_duration_ms, run_delay_ms;
     uint32_t remaining_ms, delay_remaining_ms;

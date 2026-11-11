@@ -41,6 +41,7 @@ miss-fap\app_service.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_spi.h
 miss-fap\app_service.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_tim.h
 miss-fap\app_service.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_tim_ex.h
 miss-fap\app_service.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h
+miss-fap\app_service.o: ../Core/Inc/peripheral/bsp_board_io.h
 miss-fap\app_service.o: ../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2/cmsis_os2.h
 miss-fap\app_service.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/FreeRTOS.h
 miss-fap\app_service.o: ../Core/Inc/peripheral/FreeRTOSConfig.h

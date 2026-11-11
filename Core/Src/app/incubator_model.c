@@ -64,9 +64,10 @@ void incubator_model_step(incubator_model_t *m, uint32_t now_ms)
             if(m->run_delay_ms) {
                 m->phase = INC_DELAY;
             } else {
-                /* 协议规定延迟为0时，孵育结束后立即发起自动降温。 */
-                m->phase = INC_COOL_REQUEST;
-                m->cooling_request = 1;
+                /* 延迟时间 = 0(界面显示 N) 表示禁用 4℃ 保存功能:
+                 * 不发起自动降温, 温控器继续按孵育设定温度保温,
+                 * 直接进入"完成"阶段, 等用户停止或开盖取出样品。 */
+                m->phase = INC_FINISHED;
             }
         }
     }

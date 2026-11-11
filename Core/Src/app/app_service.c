@@ -1,4 +1,5 @@
 #include "app_service.h"
+#include "bsp_board_io.h"
 #include "cmsis_os2.h"
 #include "FreeRTOS.h"
 #include "task.h"
@@ -19,6 +20,15 @@ static app_snapshot_t s_app; /* 只有应用服务任务可以修改此实例。
 static uint32_t s_next_id, s_pending_id, s_write_started_ms;
 static int32_t s_requested_target;
 static uint8_t s_auto_write;
+
+/* 设定值写入失败后的自动重试: 每 WRITE_RETRY_PERIOD_MS 重发一次,
+ * 最多 WRITE_RETRY_MAX 次; 用尽后解除 write_fault, 避免一次失败让报警永久锁存。 */
+#define WRITE_RETRY_PERIOD_MS   10000u
+#define WRITE_RETRY_MAX         5u
+
+static uint8_t  s_write_retries;
+static uint32_t s_write_retry_ms;
+static uint8_t  s_last_alarm;   /* 报警边沿日志用 */
 
 /* 将服务命令和拒绝原因转换为简洁日志，便于串口追踪按键后的业务结果。 */
 static const char *command_name(app_command_kind_t kind)
@@ -67,6 +77,82 @@ static const char *phase_name(inc_phase_t phase)
 
 __WEAK int app_board_buzzer_set(int enabled) { (void)enabled; return 0; }
 
+/* ==================== 温控风扇 (OUTPUT_1 = PB1) ==================== */
+/*
+ * 风扇为 12V 输出, 高电平有效。跟随温控运行状态动作:
+ *   开启温控(START, 阶段 RUNNING/DELAY/COOL_REQUEST/COOLING/STORAGE)
+ *       -> 立即拉高 PB1;
+ *   关闭温控(STOP/超时结束/故障, 阶段 IDLE/ERROR)
+ *       -> 保持运转 FAN_COOLDOWN_MS(1 分钟) 排出余热, 到期后拉低 PB1。
+ * 1 分钟窗口内重新开启温控, 则取消待关闭计时, 风扇不断电。
+ */
+#define FAN_COOLDOWN_MS   60000u
+#define FAN_LOG_PERIOD_MS 10000u   /* 风扇运行期间的状态心跳周期(排查后可调大/关闭) */
+
+static uint8_t  s_fan_on;          /* 风扇当前输出状态 */
+static uint8_t  s_fan_off_pending; /* 已排队等待延时关闭 */
+static uint32_t s_fan_off_ms;      /* 计划关闭时刻 (HAL_GetTick 时基) */
+static uint8_t  s_fan_last_active; /* 上一次温控运行状态, 用于边沿日志 */
+static uint32_t s_fan_log_ms;      /* 上次风扇心跳日志时刻 */
+
+/* 只在状态变化时真正操作引脚, 避免每 20ms 重复写 GPIO */
+static void fan_apply(uint8_t on)
+{
+    if(s_fan_on == on) return;
+    bsp_board_output_set(BSP_OUT_FAN, on ? 1 : 0);
+    s_fan_on = on;
+    printf("[fan] %s\r\n", on ? "ON" : "OFF");
+}
+
+/* 温控运行中: 立即开风扇并取消可能存在的延时关闭 */
+static void fan_start(void)
+{
+    s_fan_off_pending = 0;
+    fan_apply(1);
+}
+
+/* 温控已关闭: 启动一次 1 分钟延时关闭 */
+static void fan_request_stop(uint32_t now)
+{
+    if(!s_fan_on || s_fan_off_pending) return;
+    s_fan_off_pending = 1;
+    s_fan_off_ms = now + FAN_COOLDOWN_MS;
+    printf("[fan] cooldown start, stop in %lus\r\n",
+           (unsigned long)(FAN_COOLDOWN_MS / 1000u));
+}
+
+/* 延时到期后关闭风扇; 由应用服务任务周期调用 */
+static void fan_poll(uint32_t now)
+{
+    if(!s_fan_off_pending) return;
+    if((int32_t)(now - s_fan_off_ms) < 0) return;
+    s_fan_off_pending = 0;
+    fan_apply(0);
+}
+
+/* 风扇诊断日志:
+ *   1) 温控运行状态发生边沿时打一行, 说明"为什么"开/关;
+ *   2) 风扇通电期间每 FAN_LOG_PERIOD_MS 打一行, 含 PB1 实际引脚回读。
+ * 若逻辑已 ON 但 pin_read=0, 说明引脚/配置/后级硬件问题, 而非业务逻辑问题。 */
+static void fan_trace(uint32_t now, uint8_t active)
+{
+    if(active != s_fan_last_active) {
+        s_fan_last_active = active;
+        printf("[fan] temp-control=%s phase=%s ctrl_on=%u -> fan=%s pending=%u\r\n",
+               active ? "ON" : "OFF", phase_name(s_app.run.phase),
+               (unsigned)s_app.temp.ctrl_on,
+               s_fan_on ? "ON" : "OFF", (unsigned)s_fan_off_pending);
+    }
+    if(!s_fan_on) return;
+    if((uint32_t)(now - s_fan_log_ms) < FAN_LOG_PERIOD_MS) return;
+    s_fan_log_ms = now;
+    printf("[fan] state=ON pin_read=%d pending=%u remain=%lums phase=%s\r\n",
+           bsp_board_output_get(BSP_OUT_FAN) ? 1 : 0,
+           (unsigned)s_fan_off_pending,
+           (unsigned long)(s_fan_off_pending ? (s_fan_off_ms - now) : 0u),
+           phase_name(s_app.run.phase));
+}
+
 /* 初始化应用状态、命令队列和状态锁。 */
 int app_service_init(void)
 {
@@ -75,6 +161,11 @@ int app_service_init(void)
     s_published = s_app;
     s_commands = xQueueCreate(8, sizeof(app_command_t));
     s_lock = xSemaphoreCreateMutex();
+    /* 上电即确认风扇引脚处于关闭状态, 便于对照后续 [fan] 日志 */
+    bsp_board_output_set(BSP_OUT_FAN, 0);
+    printf("[fan] init OFF pin_read=%d cooldown=%lums\r\n",
+           bsp_board_output_get(BSP_OUT_FAN) ? 1 : 0,
+           (unsigned long)(FAN_COOLDOWN_MS / 1000u));
     return s_commands && s_lock;
 }
 
@@ -202,23 +293,24 @@ void app_service_task(void *argument)
     uint8_t door_request = 0, previous_buzzer = 2;
     uint32_t door_request_ms = 0;
     uint8_t at_temp = 0;
-    motor_state_t previous_door = MOTOR_UNINIT;
     (void)argument;
     for(;;) {
         uint32_t now = HAL_GetTick();
         int32_t diff;
         temp_service_snapshot(&s_app.temp);
         s_app.door = motor_get_state();
-        /* 舱门打开表示取出样品，结束保存阶段。 */
-        if(s_app.door == MOTOR_OPEN && previous_door != MOTOR_OPEN &&
-           (s_app.run.phase == INC_STORAGE || s_app.run.phase == INC_FINISHED))
-            stop_and_restore(now);
-        previous_door = s_app.door;
         s_app.door_fault = s_app.door == MOTOR_FAULT ||
             ((s_app.door == MOTOR_OPEN || s_app.door == MOTOR_CLOSED) && motor_feedback_age_ms() > 2500u);
         if(s_app.target_pending && s_app.temp.completed_id == s_pending_id) {
             s_app.target_pending = 0;
             s_app.write_fault = !s_app.temp.write_ok;
+            /* 失败则安排自动重试, 成功则清零重试计数 */
+            if(s_app.write_fault) {
+                s_write_retries = 0;
+                s_write_retry_ms = now + WRITE_RETRY_PERIOD_MS;
+            } else {
+                s_write_retries = 0;
+            }
             printf("[app] setpoint completion id=%lu result=%s target=%ld.%02ldC\r\n",
                    (unsigned long)s_pending_id, s_app.temp.write_ok ? "CONFIRMED" : "FAILED",
                    (long)(s_requested_target / 100),
@@ -237,7 +329,31 @@ void app_service_task(void *argument)
         if(s_app.target_pending && (uint32_t)(now-s_write_started_ms) > 10000u) {
             /* 在事务完成前保持互锁，避免第一条未知结果的写入尚未到达时又发送第二条设定值。 */
             s_app.message = APP_MSG_WRITE_FAILED;
-            s_app.write_fault = 1;
+            if(!s_app.write_fault) {
+                s_app.write_fault = 1;
+                s_write_retries = 0;
+                s_write_retry_ms = now + WRITE_RETRY_PERIOD_MS;
+            }
+        }
+        /* 写入失败自动重试: 通信正常、温控器无报警且没有挂起事务时, 每 10s 重发一次。
+         * 重试用尽仍失败 -> 解除 write_fault, 只保留本次提示, 不再让报警永久挂住。 */
+        if(!s_app.temp.online) {
+            /* 离线本身已由 temp_alarm 报警, 不再保留写入故障, 恢复后重新按需写入 */
+            s_app.write_fault = 0;
+            s_write_retries = 0;
+        } else if(s_app.write_fault && !s_app.target_pending && !s_app.temp.alarm &&
+                  (int32_t)(now - s_write_retry_ms) >= 0) {
+            if(s_write_retries >= WRITE_RETRY_MAX) {
+                s_app.write_fault = 0;
+                printf("[app] write_fault retries exhausted (%u), cleared\r\n",
+                       (unsigned)WRITE_RETRY_MAX);
+            } else if(request_target(s_requested_target, s_auto_write, now)) {
+                s_write_retries++;
+                printf("[app] write_fault retry %u/%u target=%ld\r\n",
+                       (unsigned)s_write_retries, (unsigned)WRITE_RETRY_MAX,
+                       (long)s_requested_target);
+                s_write_retry_ms = now + WRITE_RETRY_PERIOD_MS;
+            }
         }
         while(xQueueReceive(s_commands, &c, 0) == pdPASS) {
             uint8_t before = door_request;
@@ -262,11 +378,35 @@ void app_service_task(void *argument)
                 s_app.message = APP_MSG_DOOR_FAILED;
             }
         }
-        /* 温度通信丢失时冻结倒计时；恢复后继续，暂停期间不扣除孵育时间。 */
-        s_app.alarm = !s_app.temp.online || !s_app.temp.valid ||
-                      s_app.temp.alarm || s_app.door_fault || s_app.write_fault;
-        incubator_model_set_paused(&s_app.run, s_app.alarm, now);
+        /* 报警按来源拆分后再汇总:
+         *   temp_alarm = 温控离线/数据无效/温控器报警/设定写失败
+         *   door_alarm = 舱门电机故障或到位心跳丢失
+         * alarm 仍为两者之或, 界面、协议与暂停逻辑沿用 alarm, 行为不变。 */
+        s_app.temp_alarm = !s_app.temp.online || !s_app.temp.valid ||
+                           s_app.temp.alarm || s_app.write_fault;
+        s_app.door_alarm = s_app.door_fault;
+        s_app.alarm = s_app.temp_alarm || s_app.door_alarm;
+        if(s_app.alarm != s_last_alarm) {
+            s_last_alarm = s_app.alarm;
+            printf("[app] alarm %u->%u temp=%u door=%u write=%u online=%u valid=%u dev=0x%04X\r\n",
+                   (unsigned)!s_app.alarm, (unsigned)s_app.alarm,
+                   (unsigned)s_app.temp_alarm, (unsigned)s_app.door_alarm,
+                   (unsigned)s_app.write_fault, (unsigned)s_app.temp.online,
+                   (unsigned)s_app.temp.valid, (unsigned)s_app.temp.alarm);
+        }
+        /* 只有温控报警才冻结孵育倒计时: 开盖/关盖、舱门故障都只是独立动作与独立提示,
+         * 不参与计时、不影响业务流程。 */
+        incubator_model_set_paused(&s_app.run, s_app.temp_alarm, now);
         incubator_model_step(&s_app.run, now);
+        /* 风扇跟随温控: 温控器闭环开启(或孵育运行中)就常开;
+         * 两者都关闭后延时 1 分钟关闭。 */
+        {
+            uint8_t fan_active = (s_app.temp.ctrl_on || incubator_model_active(&s_app.run)) ? 1u : 0u;
+            if(fan_active) fan_start();
+            else fan_request_stop(now);
+            fan_poll(now);
+            fan_trace(now, fan_active);
+        }
         if(s_app.run.cooling_request) {
             if(request_target(400, 1, now)) s_app.run.cooling_request = 0;
         }

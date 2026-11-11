@@ -118,6 +118,8 @@ static int32_t s_temp_progress_observed_target_centi;
 static uint8_t s_temp_progress_observed;
 static app_snapshot_t s_view;
 static uint32_t s_refresh_ms;
+/* 上次看到的蜂鸣状态: 用于检测"开始蜂鸣"的上升沿, 只在那一刻把焦点移到消音项 */
+static uint8_t s_buzzer_seen;
 static uint32_t s_repeat_key = KEY_COUNT, s_hold_ms, s_repeat_ms;
 static uint8_t s_repeating;
 
@@ -553,6 +555,8 @@ void ui_layout_init(void)
     s_temp_progress_valid = s_temp_progress_waiting = 0;
     s_temp_progress_reached = 0;
     s_temp_progress_observed = 0;
+    /* 页面重建后重新判定蜂鸣上升沿, 保证重建时正在蜂鸣也能自动跳到消音项 */
+    s_buzzer_seen = 0;
 
     lv_obj_clean(screen);
     lv_obj_remove_style_all(screen);
@@ -939,9 +943,9 @@ static void render_temperature_widget(void)
     lv_obj_set_pos(s_temp_unit, 8 + value_width + 2, TEMP_Y + 29);
     }
     {
-        uint32_t temp_color = !s_view.temp.valid ? RED :
-            (ph == INC_COOL_REQUEST || ph == INC_COOLING) &&
-            !s_view.at_temperature ? ORANGE : GREEN;
+        /* 实时温度固定用绿色显示(与设定值区一致), 不再随降温阶段变成橙色;
+         * 只有"数据无效"才用红色, 表示没有有效测量值。 */
+        uint32_t temp_color = !s_view.temp.valid ? RED : GREEN;
         tint(s_pv, temp_color);
         tint(s_temp_unit, temp_color);
     }
@@ -1417,6 +1421,17 @@ void ui_layout_process(void)
         s_edit = 0;
         focus_update();
     }
+
+    /* 孵育完成开始蜂鸣(0->1)时, 焦点自动跳到"消音"项, 用户直接按 OK 即可静音。
+     * 只在上升沿移动一次: 否则用户用方向键移开后会被反复拽回, 无法操作其它项。 */
+    if(s_view.run.buzzer && !s_buzzer_seen && s_focus != NULL &&
+       s_focus_index != FOCUS_MUTE) {
+        s_edit = 0;
+        s_focus_index = FOCUS_MUTE;
+        focus_update();
+        printf("[ui] incubation finished: buzzer on, focus -> MUTE\r\n");
+    }
+    s_buzzer_seen = s_view.run.buzzer ? 1u : 0u;
 
     /* 按固定顺序刷新各屏幕区域，便于按区域定位显示问题。 */
     {
