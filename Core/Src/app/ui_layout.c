@@ -731,6 +731,11 @@ static void handle_delay_key(uint32_t key)
             s_edit = 0;
         }
     } else {
+        /* 草稿为 0 时界面显示 N(不是数字位): 此时按 ↑↓ 固定按个位(1 秒)调整,
+         * 并把光标索引复位到个位, 保证 N → 001 的跳转, 光标随数字回到个位。
+         * (否则停在 N 时按过 ←→ 再按 ↑, 会变成 +100/+10 的跳变) */
+        if(s_draft == 0 && (key == KEY_UP || key == KEY_DOWN))
+            s_digit_index = 2;
         edit_numeric_digits(key, steps, 0, APP_DELAY_MAX_S);
     }
 }
@@ -1153,7 +1158,9 @@ static void render_delay_widget(void)
     s_prev_phase = ph;
     /* 延迟阶段显示剩余秒数；延迟设为0表示孵育结束后立即降温。 */
     if(s_edit && s_focus_index == FOCUS_DELAY) {
-        snprintf(number, sizeof(number), "%03lu", (unsigned long)s_draft);
+        /* 编辑到 0 时直接显示 N(表示禁用该功能), 不显示 000 */
+        if(s_draft == 0) strcpy(number, "N");
+        else snprintf(number, sizeof(number), "%03lu", (unsigned long)s_draft);
     } else if(ph == INC_STORAGE) {
         /* 保存中: 显示已保存时长 HH:MM:SS。
          * 用固定 6 位数字(时:分:秒), 最长可显示到 99 小时(远超 600 分钟需求),
@@ -1205,24 +1212,35 @@ static void render_delay_widget(void)
         else lv_obj_remove_flag(s_delay_unit, LV_OBJ_FLAG_HIDDEN);
     }
 
-    if(hide_delay_hint || ph == INC_STORAGE ||
-       ph == INC_COOL_REQUEST || ph == INC_COOLING) {
-        /* N(禁用)、降温中、保存阶段: 右上角的秒数提示都已失效, 一律隐藏 */
-        value(s_delay_set, "");
-        lv_obj_add_flag(s_delay_set, LV_OBJ_FLAG_HIDDEN);
-    } else if(s_edit && s_focus_index == FOCUS_DELAY) {
-        snprintf(b, sizeof(b), "%lu s", (unsigned long)s_draft);
-        lv_obj_remove_flag(s_delay_set, LV_OBJ_FLAG_HIDDEN);
-    } else if(ph == INC_DELAY && s_view.run.delay_s) {
-        snprintf(b, sizeof(b), "%lu/%u",
-                 (unsigned long)((s_view.run.delay_remaining_ms + 999u) / 1000u),
-                 s_view.run.delay_s);
-        lv_obj_remove_flag(s_delay_set, LV_OBJ_FLAG_HIDDEN);
-    } else {
-        snprintf(b, sizeof(b), "%u s", s_view.run.delay_s);
-        lv_obj_remove_flag(s_delay_set, LV_OBJ_FLAG_HIDDEN);
+    {
+        /* 右上角秒数提示: 需要隐藏的情形统一用一个标志, 避免残留的 b 被写回标签。
+         * 隐藏条件: 延迟=0(非编辑态) / 降温中 / 保存阶段 / 编辑时草稿为 0(此时大值已是 N)。 */
+        int hint_hidden = 0;
+
+        if(hide_delay_hint || ph == INC_STORAGE ||
+           ph == INC_COOL_REQUEST || ph == INC_COOLING)
+            hint_hidden = 1;
+        else if(s_edit && s_focus_index == FOCUS_DELAY) {
+            if(s_draft == 0) hint_hidden = 1;          /* N 已表达禁用, 不再显示 0 s */
+            else snprintf(b, sizeof(b), "%lu s", (unsigned long)s_draft);
+        } else if(ph == INC_DELAY && s_view.run.delay_s) {
+            snprintf(b, sizeof(b), "%lu/%u",
+                     (unsigned long)((s_view.run.delay_remaining_ms + 999u) / 1000u),
+                     s_view.run.delay_s);
+        } else if(s_view.run.delay_s == 0u) {
+            hint_hidden = 1;                            /* 禁用时不显示 0 s */
+        } else {
+            snprintf(b, sizeof(b), "%u s", s_view.run.delay_s);
+        }
+
+        if(hint_hidden) {
+            value(s_delay_set, "");
+            lv_obj_add_flag(s_delay_set, LV_OBJ_FLAG_HIDDEN);
+        } else {
+            value(s_delay_set, b);
+            lv_obj_remove_flag(s_delay_set, LV_OBJ_FLAG_HIDDEN);
+        }
     }
-    if(!hide_delay_hint) value(s_delay_set, b);
 
     /* 临时应用消息优先显示；否则按延迟、降温、保存、运行、空闲依次显示说明。 */
     if(s_view.message != APP_MSG_NONE) {
@@ -1375,7 +1393,15 @@ static void refresh_edit_cursor(void)
             }
             y = TIME_Y + 58;
         } else {
-            snprintf(cursor, sizeof(cursor), "%03lu", (unsigned long)s_draft);
+            /* 延迟草稿为 0 时界面显示单个 N(表示禁用), 光标也要落在 N 下,
+             * 不能仍按 "000" 的三位布局定位(那样会跑到个位去)。 */
+            if(s_draft == 0) {
+                snprintf(cursor, sizeof(cursor), "N");
+                ci = 0;
+            } else {
+                snprintf(cursor, sizeof(cursor), "%03lu", (unsigned long)s_draft);
+                ci = s_digit_index;
+            }
             cf = F28;
             y = DELAY_Y + 59;
         }
