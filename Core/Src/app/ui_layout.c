@@ -96,6 +96,7 @@ static lv_obj_t *s_time_title;
 static lv_obj_t *s_pv, *s_target, *s_time, *s_time_aux, *s_delay;
 static lv_obj_t *s_temp_unit;
 static lv_obj_t *s_delay_unit;
+static lv_obj_t *s_delay_title;                 /* 延迟/保存栏标题, 随阶段切换文案 */
 static lv_obj_t *s_delay_set, *s_delay_state;
 /* 三栏进度条分别显示温度、孵育时间和延迟降温阶段进度。 */
 static lv_obj_t *s_temp_bar_track, *s_temp_bar_fill;
@@ -378,7 +379,7 @@ static void create_timing_area(lv_obj_t *screen)
 /* 创建自动降温延迟设置、倒计时和状态提示区域。 */
 static void create_delay_area(lv_obj_t *screen)
 {
-    text(screen, S_DELAY_TITLE, 8, DELAY_Y + 12, 124, 14, F12, MUTED, LV_TEXT_ALIGN_LEFT);
+    s_delay_title = text(screen, S_DELAY_TITLE, 8, DELAY_Y + 12, 124, 14, F12, MUTED, LV_TEXT_ALIGN_LEFT);
     s_delay_set = text(screen, "", 140, DELAY_Y + 12, 52, 14, F12, MUTED, LV_TEXT_ALIGN_RIGHT);
     s_delay = text(screen, "0", 8, DELAY_Y + 30, 60, 32, F28, YELLOW, LV_TEXT_ALIGN_LEFT);
     s_delay_unit = text(screen, "s", 0, DELAY_Y + 30, 32, 32, F28, MUTED, LV_TEXT_ALIGN_LEFT);
@@ -992,16 +993,9 @@ static void render_alarm_indicator(void)
     tint(s_alarm, s_view.alarm ? RED : MUTED);
 }
 
-/* 绘制顶部舱门状态；运行卡片由 render_door_control() 单独负责。 */
+/* 绘制顶部舱门状态；只反映位置反馈: 已开/已关/动作中/未知。 */
 static void render_header_door_status(void)
 {
-    /* 将电机状态映射为已开、已关、动作中、故障或未知。 */
-    /* 位置反馈超时后即使保留最后的 CLOSED/OPEN 状态，也不能继续显示为到位。 */
-    if(s_view.door_fault || s_view.door == MOTOR_FAULT) {
-        value(s_door, S_LID S_DOOR_FAULT);
-        tint(s_door, RED);
-        return;
-    }
     switch(s_view.door) {
     case MOTOR_OPEN: value(s_door, S_LID S_DOOR_OPEN); break;
     case MOTOR_CLOSED: value(s_door, S_LID S_DOOR_CLOSED); break;
@@ -1011,7 +1005,6 @@ static void render_header_door_status(void)
         value(s_door, S_LID S_DOOR_OPENING); break;
     case MOTOR_CLOSING:
         value(s_door, S_LID S_DOOR_CLOSING); break;
-    case MOTOR_FAULT: value(s_door, S_LID S_DOOR_FAULT); break;
     default: value(s_door, S_LID "--"); break;
     }
     tint(s_door, GREEN);
@@ -1152,22 +1145,46 @@ static void render_delay_widget(void)
     int show_bar;
     int hide_delay_hint = !s_edit && s_view.run.delay_s == 0u;
     inc_phase_t ph = s_view.run.phase;
+    /* 保存阶段显示"已保存时长": 用阶段进入时刻本地计时, 不改状态机与协议。 */
+    static inc_phase_t s_prev_phase = INC_IDLE;
+    static uint32_t s_storage_start_ms;
+    static int32_t s_delay_value_w = 52;   /* 数字区宽度: 保存阶段需要更宽 */
+    if(ph == INC_STORAGE && s_prev_phase != INC_STORAGE) s_storage_start_ms = HAL_GetTick();
+    s_prev_phase = ph;
     /* 延迟阶段显示剩余秒数；延迟设为0表示孵育结束后立即降温。 */
     if(s_edit && s_focus_index == FOCUS_DELAY) {
         snprintf(number, sizeof(number), "%03lu", (unsigned long)s_draft);
+    } else if(ph == INC_STORAGE) {
+        /* 保存中: 显示已保存时长 HH:MM:SS。
+         * 用固定 6 位数字(时:分:秒), 最长可显示到 99 小时(远超 600 分钟需求),
+         * 宽度固定不会因位数变化跳动。 */
+        uint32_t elapsed_s = (HAL_GetTick() - s_storage_start_ms) / 1000u;
+        snprintf(number, sizeof(number), "%02lu:%02lu:%02lu",
+                 (unsigned long)(elapsed_s / 3600u),
+                 (unsigned long)((elapsed_s / 60u) % 60u),
+                 (unsigned long)(elapsed_s % 60u));
+    } else if(ph == INC_COOL_REQUEST || ph == INC_COOLING) {
+        /* 降温中: 延迟参数已用完, 不再显示无意义的秒数 */
+        number[0] = '\0';
     } else if(s_view.run.delay_s == 0u) {
         /* 延迟设为0表示禁用延迟保存功能，主数值用N表示。 */
         strcpy(number, "N");
     } else if(ph == INC_DELAY) {
         snprintf(number, sizeof(number), "%lu",
                  (unsigned long)((s_view.run.delay_remaining_ms + 999u) / 1000u));
-    } else if(ph == INC_COOL_REQUEST || ph == INC_COOLING) {
-        strcpy(number, "0");
-    } else if(ph == INC_STORAGE) {
-        strcpy(number, "--");
     } else {
         snprintf(number, sizeof(number), "%lu", (unsigned long)s_view.run.delay_s);
     }
+    /* 保存阶段的"时:分:秒"比秒数宽得多, 动态加宽数字区避免末位被裁掉 */
+    {
+        int32_t want_w = (ph == INC_STORAGE) ? 168 : 52;
+        if(want_w != s_delay_value_w) {
+            s_delay_value_w = want_w;
+            lv_obj_set_width(s_delay, (int32_t)want_w);
+        }
+    }
+    /* 保存阶段标题改为"4℃ 保存"(延迟已结束), 其余阶段沿用原标题。 */
+    value(s_delay_title, ph == INC_STORAGE ? S_STORAGE_TITLE : S_DELAY_TITLE);
     value(s_delay, number);
     {
         lv_font_glyph_dsc_t glyph;
@@ -1182,12 +1199,15 @@ static void render_delay_widget(void)
         }
         lv_obj_set_pos(s_delay_unit, 8 + value_width + 2, DELAY_Y + 30);
         tint(s_delay_unit, YELLOW);
-        if(number[0] == 'N') lv_obj_add_flag(s_delay_unit, LV_OBJ_FLAG_HIDDEN);
+        /* 空值(降温中) / N(禁用) / 保存阶段(时钟格式) 都不需要秒单位 */
+        if(number[0] == '\0' || number[0] == 'N' || ph == INC_STORAGE)
+            lv_obj_add_flag(s_delay_unit, LV_OBJ_FLAG_HIDDEN);
         else lv_obj_remove_flag(s_delay_unit, LV_OBJ_FLAG_HIDDEN);
     }
 
-    if(hide_delay_hint) {
-        /* N 已表示延迟功能禁用，隐藏右上角重复的秒数提示。 */
+    if(hide_delay_hint || ph == INC_STORAGE ||
+       ph == INC_COOL_REQUEST || ph == INC_COOLING) {
+        /* N(禁用)、降温中、保存阶段: 右上角的秒数提示都已失效, 一律隐藏 */
         value(s_delay_set, "");
         lv_obj_add_flag(s_delay_set, LV_OBJ_FLAG_HIDDEN);
     } else if(s_edit && s_focus_index == FOCUS_DELAY) {
@@ -1224,7 +1244,7 @@ static void render_delay_widget(void)
         value(s_delay_state, S_COOLING);
         tint(s_delay_state, BLUE);
     } else if(ph == INC_STORAGE) {
-        value(s_delay_state, S_KEEP);
+        value(s_delay_state, S_SAVING);
         tint(s_delay_state, GREEN);
     } else if(ph == INC_RUNNING) {
         value(s_delay_state, "");
@@ -1285,14 +1305,10 @@ static void render_stop_control(void)
     }
 }
 
-/* 按舱门状态绘制开盖、关盖、初始化及故障文案。 */
+/* 按舱门状态绘制开盖、关盖、动作中及初始化文案。 */
 static void render_door_control(void)
 {
-    /* 只有当前反馈有效且状态机确认到位，才显示“已开/已关”。 */
-    if(s_view.door_fault || s_view.door == MOTOR_FAULT) {
-        value(s_kt[ACTION_DOOR], S_DOOR_FAULT); tint(s_kt[ACTION_DOOR], RED);
-        value(s_kn[ACTION_DOOR], "SET"); tint(s_kn[ACTION_DOOR], MUTED);
-    } else if(s_view.door == MOTOR_OPEN) {
+    if(s_view.door == MOTOR_OPEN) {
         value(s_kt[ACTION_DOOR], S_CLOSE); tint(s_kt[ACTION_DOOR], GREEN);
         value(s_kn[ACTION_DOOR], S_DOOR_OPEN); tint(s_kn[ACTION_DOOR], MUTED);
     } else if(s_view.door == MOTOR_CLOSED) {
@@ -1307,9 +1323,6 @@ static void render_door_control(void)
     } else if(s_view.door == MOTOR_INSTALLING) {
         value(s_kt[ACTION_DOOR], S_DOOR_INIT); tint(s_kt[ACTION_DOOR], MUTED);
         value(s_kn[ACTION_DOOR], "--"); tint(s_kn[ACTION_DOOR], MUTED);
-    } else if(s_view.door == MOTOR_FAULT) {
-        value(s_kt[ACTION_DOOR], S_DOOR_FAULT); tint(s_kt[ACTION_DOOR], RED);
-        value(s_kn[ACTION_DOOR], "SET"); tint(s_kn[ACTION_DOOR], MUTED);
     } else {
         value(s_kt[ACTION_DOOR], S_OPEN); tint(s_kt[ACTION_DOOR], GREEN);
         value(s_kn[ACTION_DOOR], "--"); tint(s_kn[ACTION_DOOR], MUTED);
@@ -1335,8 +1348,7 @@ static void render_action_icon_colors(void)
     key_icons(ph == INC_RUNNING || ph == INC_DELAY ? ORANGE :
               (allowed(FOCUS_START) ? GREEN : DISABLED),
               (incubator_model_active(&s_view.run) || ph == INC_FINISHED || ph == INC_ERROR) ? GREEN : DISABLED,
-              (s_view.door_fault || s_view.door == MOTOR_FAULT) ? RED :
-                  (allowed(FOCUS_DOOR) ? GREEN : DISABLED),
+              (allowed(FOCUS_DOOR) ? GREEN : DISABLED),
               s_view.run.buzzer ? RED : DISABLED);
 }
 

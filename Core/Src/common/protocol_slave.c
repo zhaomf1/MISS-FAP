@@ -158,13 +158,12 @@ static uint16_t work_status(const app_snapshot_t *snapshot)
     }
 }
 
-/* 汇总协议 0x0003/0x0035 中定义的四类故障位。 */
+/* 汇总协议 0x0003/0x0035 中定义的故障位(舱门不再产生故障位)。 */
 static uint16_t fault_bits(const app_snapshot_t *snapshot)
 {
     uint16_t bits = 0u;
     if (snapshot->temp.alarm != 0u) bits |= (uint16_t)(1u << 0);
     if (!snapshot->temp.online || !snapshot->temp.valid) bits |= (uint16_t)(1u << 1);
-    if (snapshot->door_fault || snapshot->door == MOTOR_FAULT) bits |= (uint16_t)(1u << 2);
     if (snapshot->write_fault) bits |= (uint16_t)(1u << 3);
     return bits;
 }
@@ -195,10 +194,10 @@ static int read_register(uint16_t address, const app_snapshot_t *snapshot, uint1
         return 1;
     }
     case 0x0033u:
-        if (snapshot->door_fault || snapshot->door == MOTOR_FAULT) *value = 3u;
-        else if (snapshot->door == MOTOR_CLOSED) *value = 0u;
+        /* 0=已关到位, 1=已开到位, 2=开/关动作中或位置未知 */
+        if (snapshot->door == MOTOR_CLOSED) *value = 0u;
         else if (snapshot->door == MOTOR_OPEN) *value = 1u;
-        else *value = 2u; /* 开机安装校准和开/关盖动作均视为忙碌。 */
+        else *value = 2u;
         return 1;
     case 0x0034u: {
         uint32_t remaining = (snapshot->run.delay_remaining_ms + 999u) / 1000u;

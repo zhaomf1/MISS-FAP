@@ -79,13 +79,8 @@ static volatile motor_state_t s_state = MOTOR_UNINIT;
 static volatile uint32_t s_feedback_ms;
 static volatile uint8_t s_feedback_seen;
 static volatile uint8_t s_command_pending;
-static volatile TickType_t   s_deadline = 0;     /* 当前阶段超时时刻 */
-static volatile TickType_t   s_move_start = 0;   /* 本次动作发起时刻 */
 
 static volatile uint32_t    s_cap_fall = 0;      /* ISR: 最近下降沿(低脉冲开始) */
-static uint8_t s_close_followup_sent;
-static uint8_t s_close_speed;
-static uint8_t s_motion_feedback_seen;
 static TickType_t s_last_fb_rx_tick;
 static uint8_t s_fb_rx_seen;
 
@@ -256,120 +251,37 @@ static void set_state(motor_state_t st)
 {
   if (st != s_state)
   {
-    motor_state_t previous = s_state;
+    printf("[motor] state %s -> %s\r\n", motor_state_str(s_state), motor_state_str(st));
     s_state = st;
-    if(previous == MOTOR_INSTALLING || previous == MOTOR_OPENING || previous == MOTOR_CLOSING)
-      printf("[motor] state %s -> %s after %lums\r\n",
-             motor_state_str(previous), motor_state_str(st),
-             (unsigned long)(xTaskGetTickCount() - s_move_start));
-    else
-      printf("[motor] state %s -> %s\r\n",
-             motor_state_str(previous), motor_state_str(st));
   }
 }
 
 /**
-  * @brief  状态机: 只消费到位心跳 (2026-10-19 简化方案)
-  * @note   到位心跳是持续广播的; 电机接受指令并运动后线上变为过程码,
-  *         心跳消失。因此"旧位置心跳持续"= 电机没理会指令(忙窗口)。
+  * @brief  纯位置跟踪: 到位心跳 -> OPEN/CLOSED, 过程码 -> OPENING/CLOSING
+  * @note   这里不做任何异常判断。电机是否理会指令、是否超时、是否堵转,
+  *         全部由电机自身与机械结构决定; 固件只反映反馈线上报告的位置。
   */
 static void fb_accept(fb_event_t e)
 {
   if(e == FB_OPEN_DONE || e == FB_CLOSED_DONE) {
     s_feedback_ms = HAL_GetTick();
     s_feedback_seen = 1;
+    set_state(e == FB_OPEN_DONE ? MOTOR_OPEN : MOTOR_CLOSED);
   }
-  /* 过程码说明电机确实已接收动作；此后只等待目标到位或总动作超时。 */
-  if((s_state == MOTOR_OPENING && (e == FB_UP_MOVING || e == FB_UP_DECEL)) ||
-     (s_state == MOTOR_CLOSING && (e == FB_DOWN_MOVING || e == FB_DOWN_DECEL)))
-    s_motion_feedback_seen = 1;
-
-  /* 过程码也可能来自手动推盖；据方向同步状态，避免仍显示到位并触发舱门超时报警。 */
-  if((s_state == MOTOR_OPEN && (e == FB_DOWN_MOVING || e == FB_DOWN_DECEL)) ||
-     (s_state == MOTOR_CLOSED && (e == FB_UP_MOVING || e == FB_UP_DECEL)) ||
-     (s_state == MOTOR_OPENING && (e == FB_DOWN_MOVING || e == FB_DOWN_DECEL)) ||
-     (s_state == MOTOR_CLOSING && (e == FB_UP_MOVING || e == FB_UP_DECEL))) {
-    motor_state_t moving_state =
-        (e == FB_UP_MOVING || e == FB_UP_DECEL) ? MOTOR_OPENING : MOTOR_CLOSING;
-    set_state(moving_state);
-    s_motion_feedback_seen = 1;
-    s_move_start = xTaskGetTickCount();
-    s_deadline = s_move_start + pdMS_TO_TICKS(MOTOR_MOVE_TIMEOUT_MS);
-    if(moving_state == MOTOR_CLOSING) s_close_followup_sent = 0;
+  else if(e == FB_UP_MOVING || e == FB_UP_DECEL) {
+    /* 过程码: 无论指令来源(按键/手动推盖), 一律显示"正在开" */
+    if(s_state != MOTOR_OPENING) set_state(MOTOR_OPENING);
   }
-
-  switch (s_state)
-  {
-    case MOTOR_INSTALLING:
-      /* 校准结束后停在哪个到位位置就同步哪个。
-       * i90 后至少 INSTALL_MIN_MS 才认: 校准期间趴在关位的 7.5 心跳
-       * 不代表校准完成, 提前认会导致后续指令撞校准窗口被忽略 */
-      if ((xTaskGetTickCount() - s_move_start) >=
-          pdMS_TO_TICKS(MOTOR_INSTALL_MIN_MS))
-      {
-        if (e == FB_CLOSED_DONE)      set_state(MOTOR_CLOSED);
-        else if (e == FB_OPEN_DONE)   set_state(MOTOR_OPEN);
-      }
-      break;
-
-    case MOTOR_OPENING:
-      if (e == FB_OPEN_DONE) set_state(MOTOR_OPEN);
-      /* 只有等待窗口内始终没有运动过程码，持续旧关位反馈才判电机未启动。 */
-      else if (e == FB_CLOSED_DONE &&
-               !s_motion_feedback_seen &&
-               (xTaskGetTickCount() - s_move_start) >=
-               pdMS_TO_TICKS(MOTOR_FB_FIRST_TIMEOUT_MS))
-      {
-        printf("[motor] FAULT: motor busy (still at closed, ignored cmd)\r\n");
-        set_state(MOTOR_FAULT);
-      }
-      break;
-
-    case MOTOR_CLOSING:
-      if (e == FB_CLOSED_DONE && !s_close_followup_sent)
-      {
-        uint16_t pulse_ms = MOTOR_PULSE_DOWN_1 + (s_close_speed - 1) * 10;
-        /* 电机首次上报关闭可能早于机械到位，补发一次相同关盖指令压实舱门。 */
-        s_close_followup_sent = 1;
-        // printf("[motor] early CLOSED feedback; send final close pulse %ums\r\n", pulse_ms);
-        // motor_pulse(pulse_ms);
-        s_move_start = xTaskGetTickCount();
-        s_deadline = s_move_start + pdMS_TO_TICKS(MOTOR_MOVE_TIMEOUT_MS);
-      }
-      else if (e == FB_CLOSED_DONE && s_close_followup_sent &&
-               (xTaskGetTickCount() - s_move_start) >=
-               pdMS_TO_TICKS(MOTOR_CLOSE_CONFIRM_MIN_MS))
-      {
-        printf("[motor] final CLOSED feedback confirmed\r\n");
-        set_state(MOTOR_CLOSED);
-      }
-      else if (e == FB_OPEN_DONE &&
-               !s_motion_feedback_seen &&
-               (xTaskGetTickCount() - s_move_start) >=
-               pdMS_TO_TICKS(MOTOR_FB_FIRST_TIMEOUT_MS))
-      {
-        printf("[motor] FAULT: motor busy (still at open, ignored cmd)\r\n");
-        set_state(MOTOR_FAULT);
-      }
-      break;
-
-    case MOTOR_OPEN:
-      /* 堵转自恢复/手动移盖: 状态自动同步 */
-      if (e == FB_CLOSED_DONE) set_state(MOTOR_CLOSED);
-      break;
-
-    case MOTOR_CLOSED:
-      if (e == FB_OPEN_DONE) set_state(MOTOR_OPEN);
-      break;
-
-    default:
-      break;
+  else if(e == FB_DOWN_MOVING || e == FB_DOWN_DECEL) {
+    if(s_state != MOTOR_CLOSING) set_state(MOTOR_CLOSING);
   }
+  /* FB_OTHER / FB_NONE: 与开合无关的码, 忽略 */
 }
 
 /**
   * @brief  安装方式初始化: 每次电机上电后必须执行一次
   *         (motor_init() 触发; 电机自校准会转动一次)
+  * @note   只发指令, 不等待、不判超时; 随后的到位心跳会把状态同步到 OPEN/CLOSED
   */
 static void motor_do_install(void)
 {
@@ -380,40 +292,30 @@ static void motor_do_install(void)
          (MOTOR_SIDE == MOTOR_SIDE_LEFT) ? "LEFT" : "RIGHT", pulse_ms);
   motor_pulse(pulse_ms);
   set_state(MOTOR_INSTALLING);
-  s_move_start = xTaskGetTickCount();
-  s_deadline = xTaskGetTickCount() + pdMS_TO_TICKS(MOTOR_INSTALL_TIMEOUT_MS);
 }
 
 /**
-  * @brief  执行上翻动作: 发上升指令并进入 OPENING 等待
+  * @brief  执行上翻动作: 发上升指令
   */
 static void motor_act_open(uint8_t speed)
 {
   uint16_t pulse_ms = MOTOR_PULSE_UP_1 + (speed - 1) * 10;
-  s_motion_feedback_seen = 0;
   printf("[motor] request OPEN speed=%u from=%s pulse=%ums\r\n",
          (unsigned)speed, motor_state_str(s_state), pulse_ms);
-  motor_send_command_pulses(pulse_ms);   /* 10/20/30，间隔200ms重发 */
+  motor_send_command_pulses(pulse_ms);
   set_state(MOTOR_OPENING);
-  s_move_start = xTaskGetTickCount();
-  s_deadline = s_move_start + pdMS_TO_TICKS(MOTOR_MOVE_TIMEOUT_MS);
 }
 
 /**
-  * @brief  执行下翻动作: 发下降指令并进入 CLOSING 等待
+  * @brief  执行下翻动作: 发下降指令
   */
 static void motor_act_close(uint8_t speed)
 {
   uint16_t pulse_ms = MOTOR_PULSE_DOWN_1 + (speed - 1) * 10;
-  s_motion_feedback_seen = 0;
-  s_close_followup_sent = 0;
-  s_close_speed = speed;
   printf("[motor] request CLOSE speed=%u from=%s pulse=%ums\r\n",
          (unsigned)speed, motor_state_str(s_state), pulse_ms);
-  motor_send_command_pulses(pulse_ms); /* 50/60/70，间隔200ms重发 */
+  motor_send_command_pulses(pulse_ms);
   set_state(MOTOR_CLOSING);
-  s_move_start = xTaskGetTickCount();
-  s_deadline = s_move_start + pdMS_TO_TICKS(MOTOR_MOVE_TIMEOUT_MS);
 }
 
 /* ========================================================================== */
@@ -488,13 +390,9 @@ void MotorTask(void *argument)
          (event != last_logged_event &&
           (TickType_t)(fb_now - last_logged_tick) >= pdMS_TO_TICKS(100)) ||
          (TickType_t)(fb_now - last_logged_tick) >= log_period) {
-        uint32_t elapsed = (s_state == MOTOR_INSTALLING ||
-                            s_state == MOTOR_OPENING ||
-                            s_state == MOTOR_CLOSING)
-                           ? (uint32_t)(fb_now - s_move_start) : 0u;
-        printf("[motor] feedback width=%luus code=%s state=%s elapsed=%lums gap=%lums\r\n",
+        printf("[motor] feedback width=%luus code=%s state=%s gap=%lums\r\n",
                (unsigned long)w_us, fb_event_str(event), motor_state_str(s_state),
-               (unsigned long)elapsed, (unsigned long)fb_gap);
+               (unsigned long)fb_gap);
         last_logged_event = event;
         last_logged_tick = fb_now;
         have_logged_feedback = 1;
@@ -504,31 +402,8 @@ void MotorTask(void *argument)
       fb_accept(event);
     }
 
-    /* --- 3. 超时检查 --- */
-    now = xTaskGetTickCount();
-    switch (s_state)
-    {
-      case MOTOR_INSTALLING:
-        if ((int32_t)(now - s_deadline) >= 0)
-        {
-          printf("[motor] FAULT: install no response (check 12V/wiring/fb)\r\n");
-          set_state(MOTOR_FAULT);
-        }
-        break;
-
-      case MOTOR_OPENING:
-      case MOTOR_CLOSING:
-        /* 心跳消失后 20s 内必须出现目标到位心跳, 否则真故障 */
-        if ((int32_t)(now - s_deadline) >= 0)
-        {
-          printf("[motor] FAULT: move timeout\r\n");
-          set_state(MOTOR_FAULT);
-        }
-        break;
-
-      default:
-        break;   /* 静止态靠心跳自动同步, 不设超时 */
-    }
+    /* --- 3. 无异常检测: 位置只由反馈线上报的到位/过程码决定 --- */
+    (void)now;
   }
 }
 
@@ -566,17 +441,12 @@ const char *motor_state_str(motor_state_t s)
 static motor_ret_t send_cmd(mcmd_type_t type, uint8_t speed)
 {
   motor_cmd_t cmd = { type, speed };
-  motor_state_t st = s_state;
 
   if (s_cmd_q == NULL)
     return MOTOR_RET_NOT_INIT;
-  if(s_command_pending) return MOTOR_RET_BUSY;
+  if(s_command_pending) return MOTOR_RET_BUSY;   /* 上一条命令还没被任务取走 */
 
-  /* 命令门禁: 安装/运动中拒绝, FAULT 须先 motor_init() 恢复 */
-  if (st == MOTOR_UNINIT || st == MOTOR_INSTALLING) return MOTOR_RET_NOT_INIT;
-  if (st == MOTOR_OPENING || st == MOTOR_CLOSING)    return MOTOR_RET_BUSY;
-  if (st == MOTOR_FAULT)                             return MOTOR_RET_FAULT;
-
+  /* 不再按状态拒绝: 开关盖只是把脉宽指令发给电机, 位置由反馈决定 */
   s_command_pending = 1;
   if (xQueueSend(s_cmd_q, &cmd, 0) != pdPASS) {
     s_command_pending = 0;
@@ -592,10 +462,6 @@ motor_ret_t motor_init(void)
   if (s_cmd_q == NULL)
     return MOTOR_RET_NOT_INIT;
   if(s_command_pending) return MOTOR_RET_BUSY;
-
-  /* 安装指令任何时候都允许(含 FAULT 恢复); 仅安装中拒收 */
-  if (s_state == MOTOR_INSTALLING)
-    return MOTOR_RET_BUSY;
 
   s_command_pending = 1;
   if (xQueueSend(s_cmd_q, &cmd, 0) != pdPASS) {

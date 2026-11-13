@@ -25,6 +25,8 @@
 #define S_REMAIN_MIN             "剩余 共 %lu.%lu min"         /* 分钟格式：剩余总时长 */
 #define S_REMAIN_H               "剩余 共 %lu.%lu h"           /* 小时格式：剩余总时长 */
 #define S_DELAY_TITLE            "延迟 4℃ 保存"               /* 延迟降温设置标题 */
+#define S_STORAGE_TITLE          "4℃ 保存"                    /* 保存阶段标题(延迟已结束) */
+#define S_SAVING                 "保存中"                      /* 保存阶段状态文字 */
 #define S_AFTER                  "%lu s 后降温"                /* N 秒后开始降温 */
 #define S_COOLING                "降温中"                      /* 自动降温进行中 */
 #define S_KEEP                   "保存中 直至取板"              /* 持续保存直到取板 */

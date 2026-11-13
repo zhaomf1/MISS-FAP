@@ -102,7 +102,7 @@ int main(void)
   MX_SPI1_Init();
   MX_SPI2_Init();
   MX_TIM4_Init();          /* TIM4 只做电机反馈输入捕获 */
-  MX_USART1_UART_Init();
+   MX_USART1_UART_Init();
   MX_USART2_UART_Init();
   MX_USART3_UART_Init();
   /* USART2(PA2/PA3) 为调试口, printf 已重定向到这里。

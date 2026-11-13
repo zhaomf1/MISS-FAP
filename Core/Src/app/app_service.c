@@ -211,8 +211,8 @@ static void stop_and_restore(uint32_t now)
         request_target(s_app.run.target_centi, 0, now);
 }
 
-/* 执行一条命令，同时检查温度、舱门和运行状态互锁条件。 */
-static void command(const app_command_t *c, uint32_t now, uint8_t *door_request)
+/* 执行一条命令，同时检查温度与运行状态互锁条件。 */
+static void command(const app_command_t *c, uint32_t now)
 {
     s_app.message = APP_MSG_NONE;
     switch(c->kind) {
@@ -264,34 +264,26 @@ static void command(const app_command_t *c, uint32_t now, uint8_t *door_request)
         break;
     case APP_OPEN:
     case APP_CLOSE:
-        if(*door_request || s_app.door == MOTOR_INSTALLING ||
-           s_app.door == MOTOR_OPENING || s_app.door == MOTOR_CLOSING) {
+        /* 开关盖就是一条指令: 直接下发, 结果只用于提示"忙", 不产生故障告警 */
+        if((c->kind == APP_OPEN ? motor_open(MOTOR_SPEED_1)
+                                : motor_close(MOTOR_SPEED_1)) != MOTOR_RET_OK)
             s_app.message = APP_MSG_BUSY;
-        } else if(s_app.door == MOTOR_UNINIT || s_app.door == MOTOR_FAULT || s_app.door_fault) {
-            /* 上电校准未完成或舱门故障时，允许用户明确请求一次重新安装校准。 */
-            if(motor_init() == MOTOR_RET_OK) *door_request = c->kind == APP_OPEN ? 1 : 2;
-            else s_app.message = APP_MSG_DOOR_FAILED;
-        } else if(s_app.door_fault ||
-                  (c->kind == APP_OPEN ? motor_open(MOTOR_SPEED_1) : motor_close(MOTOR_SPEED_1)) != MOTOR_RET_OK)
-            s_app.message = APP_MSG_DOOR_FAILED;
         break;
     }
     printf("[app] command %s value=%ld result=%s phase=%s door=%d "
            "temp_online=%u temp_valid=%u alarm=%u target_valid=%u "
-           "target_pending=%u door_fault=%u\r\n",
+           "target_pending=%u\r\n",
            command_name(c->kind), (long)c->value, message_name(s_app.message),
            phase_name(s_app.run.phase), (int)s_app.door, (unsigned)s_app.temp.online,
            (unsigned)s_app.temp.valid, (unsigned)s_app.temp.alarm,
-           (unsigned)s_app.temp.target_valid, (unsigned)s_app.target_pending,
-           (unsigned)s_app.door_fault);
+           (unsigned)s_app.temp.target_valid, (unsigned)s_app.target_pending);
 }
 
 /* 应用服务主循环：轮询子服务、推进状态机并发布界面快照。 */
 void app_service_task(void *argument)
 {
     app_command_t c;
-    uint8_t door_request = 0, previous_buzzer = 2;
-    uint32_t door_request_ms = 0;
+    uint8_t previous_buzzer = 2;
     uint8_t at_temp = 0;
     (void)argument;
     for(;;) {
@@ -299,8 +291,6 @@ void app_service_task(void *argument)
         int32_t diff;
         temp_service_snapshot(&s_app.temp);
         s_app.door = motor_get_state();
-        s_app.door_fault = s_app.door == MOTOR_FAULT ||
-            ((s_app.door == MOTOR_OPEN || s_app.door == MOTOR_CLOSED) && motor_feedback_age_ms() > 2500u);
         if(s_app.target_pending && s_app.temp.completed_id == s_pending_id) {
             s_app.target_pending = 0;
             s_app.write_fault = !s_app.temp.write_ok;
@@ -356,46 +346,21 @@ void app_service_task(void *argument)
             }
         }
         while(xQueueReceive(s_commands, &c, 0) == pdPASS) {
-            uint8_t before = door_request;
-            command(&c, now, &door_request);
-            if(!before && door_request) door_request_ms = now;
+            command(&c, now);
         }
-        if(door_request) {
-            if((door_request == 1 && s_app.door == MOTOR_OPEN) ||
-               (door_request == 2 && s_app.door == MOTOR_CLOSED)) {
-                printf("[app] deferred door request=%s already at target; skip pulse\r\n",
-                       door_request == 1 ? "OPEN" : "CLOSE");
-                door_request = 0;
-            } else if(s_app.door == MOTOR_OPEN || s_app.door == MOTOR_CLOSED) {
-                motor_ret_t ret = door_request == 1 ? motor_open(MOTOR_SPEED_1) : motor_close(MOTOR_SPEED_1);
-                printf("[app] deferred door request=%s after init state=%s result=%d\r\n",
-                       door_request == 1 ? "OPEN" : "CLOSE",
-                       motor_state_str(s_app.door), (int)ret);
-                if(ret == MOTOR_RET_OK) door_request = 0;
-            }
-            if((uint32_t)(now-door_request_ms) > 18000u) {
-                door_request = 0;
-                s_app.message = APP_MSG_DOOR_FAILED;
-            }
-        }
-        /* 报警按来源拆分后再汇总:
-         *   temp_alarm = 温控离线/数据无效/温控器报警/设定写失败
-         *   door_alarm = 舱门电机故障或到位心跳丢失
-         * alarm 仍为两者之或, 界面、协议与暂停逻辑沿用 alarm, 行为不变。 */
+        /* 报警只来源于温控链路; 舱门开/关不产生任何告警, 也不参与业务互锁。 */
         s_app.temp_alarm = !s_app.temp.online || !s_app.temp.valid ||
                            s_app.temp.alarm || s_app.write_fault;
-        s_app.door_alarm = s_app.door_fault;
-        s_app.alarm = s_app.temp_alarm || s_app.door_alarm;
+        s_app.alarm = s_app.temp_alarm;
         if(s_app.alarm != s_last_alarm) {
             s_last_alarm = s_app.alarm;
-            printf("[app] alarm %u->%u temp=%u door=%u write=%u online=%u valid=%u dev=0x%04X\r\n",
+            printf("[app] alarm %u->%u temp=%u write=%u online=%u valid=%u dev=0x%04X\r\n",
                    (unsigned)!s_app.alarm, (unsigned)s_app.alarm,
-                   (unsigned)s_app.temp_alarm, (unsigned)s_app.door_alarm,
-                   (unsigned)s_app.write_fault, (unsigned)s_app.temp.online,
-                   (unsigned)s_app.temp.valid, (unsigned)s_app.temp.alarm);
+                   (unsigned)s_app.temp_alarm, (unsigned)s_app.write_fault,
+                   (unsigned)s_app.temp.online, (unsigned)s_app.temp.valid,
+                   (unsigned)s_app.temp.alarm);
         }
-        /* 只有温控报警才冻结孵育倒计时: 开盖/关盖、舱门故障都只是独立动作与独立提示,
-         * 不参与计时、不影响业务流程。 */
+        /* 只有温控报警才冻结孵育倒计时; 开关盖只是独立动作, 不参与计时与流程。 */
         incubator_model_set_paused(&s_app.run, s_app.temp_alarm, now);
         incubator_model_step(&s_app.run, now);
         /* 风扇跟随温控: 温控器闭环开启(或孵育运行中)就常开;
